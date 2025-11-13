@@ -1,3 +1,4 @@
+import { OpenAI } from 'openai'
 import { ALL_TOOLS, ToolName } from '../tools'
 import AGENT_SYSTEM_PROMPT from './system_prompt'
 import { logAgentAction } from '../tools/logger'
@@ -14,9 +15,14 @@ interface AgentResponse {
   proactive_suggestions?: any[]
 }
 
+// Initialize OpenAI client
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+})
+
 /**
- * AI Agent Executor
- * Handles tool selection, execution, and response generation
+ * AI Agent Executor with Real OpenAI Integration
+ * Handles tool selection, execution, and intelligent response generation
  */
 export async function executeAgent(
   userMessage: string,
@@ -24,6 +30,9 @@ export async function executeAgent(
   conversationHistory: AgentMessage[] = []
 ): Promise<AgentResponse> {
   try {
+    console.log('🤖 Agent received message:', userMessage)
+    console.log('👤 User ID:', userId)
+
     // Step 1: Detect intent and select appropriate tools
     const intent = detectIntent(userMessage)
     const selectedTools = selectTools(intent, userMessage)
@@ -52,7 +61,7 @@ export async function executeAgent(
         toolResults.push({ tool: toolName, result })
         toolsUsed.push(toolName)
 
-        console.log(`✅ ${toolName} result:`, result)
+        console.log(`✅ ${toolName} result:`, result.success ? 'SUCCESS' : 'FAILED')
       } catch (error: any) {
         console.error(`Error executing tool ${toolName}:`, error)
         toolResults.push({
@@ -62,8 +71,24 @@ export async function executeAgent(
       }
     }
 
-    // Step 3: Generate agent response based on tool results
-    const response = generateAgentResponse(userMessage, intent, toolResults, conversationHistory)
+    // Step 3: Use OpenAI to generate intelligent response
+    const response = await generateIntelligentResponse(
+      userMessage,
+      intent,
+      toolResults,
+      conversationHistory,
+      userId
+    )
+
+    // Log agent action
+    await logAgentAction(userId, 'chat_response', {
+      message: userMessage,
+      intent,
+      tools_used: toolsUsed
+    }, {
+      response,
+      tools_executed: toolResults.length
+    })
 
     return {
       response,
@@ -72,12 +97,183 @@ export async function executeAgent(
       proactive_suggestions: []
     }
   } catch (error: any) {
-    console.error('Error in executeAgent:', error)
+    console.error('❌ Error in executeAgent:', error)
     return {
       response: 'عذراً، حدث خطأ أثناء معالجة طلبك. الرجاء المحاولة مرة أخرى.',
       tools_used: [],
     }
   }
+}
+
+/**
+ * Generate intelligent response using OpenAI
+ */
+async function generateIntelligentResponse(
+  userMessage: string,
+  intent: string,
+  toolResults: any[],
+  history: AgentMessage[],
+  userId: string
+): Promise<string> {
+  try {
+    // Build context from tool results
+    let toolContext = ''
+    if (toolResults.length > 0) {
+      toolContext = '\n\n## نتائج الأدوات المنفذة:\n'
+      for (const { tool, result } of toolResults) {
+        toolContext += `\n### ${tool}:\n`
+        if (result.success) {
+          toolContext += `✅ نجح\n`
+          if (result.data) {
+            toolContext += `البيانات: ${JSON.stringify(result.data, null, 2)}\n`
+          }
+          if (result.message) {
+            toolContext += `الرسالة: ${result.message}\n`
+          }
+        } else {
+          toolContext += `❌ فشل\n`
+          toolContext += `الخطأ: ${result.error || 'خطأ غير معروف'}\n`
+        }
+      }
+    }
+
+    // Build conversation history
+    const messages: any[] = [
+      {
+        role: 'system',
+        content: AGENT_SYSTEM_PROMPT + toolContext
+      }
+    ]
+
+    // Add conversation history (last 5 messages)
+    const recentHistory = history.slice(-5)
+    for (const msg of recentHistory) {
+      messages.push({
+        role: msg.role === 'assistant' ? 'assistant' : 'user',
+        content: msg.content
+      })
+    }
+
+    // Add current user message
+    messages.push({
+      role: 'user',
+      content: userMessage
+    })
+
+    console.log('🧠 Calling OpenAI with', messages.length, 'messages')
+
+    // Call OpenAI
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini', // Using gpt-4o-mini for cost efficiency
+      messages: messages,
+      temperature: 0.7,
+      max_tokens: 500,
+    })
+
+    const response = completion.choices[0]?.message?.content || 'عذراً، لم أتمكن من فهم طلبك.'
+    
+    console.log('✅ OpenAI response generated')
+    
+    return response
+  } catch (error: any) {
+    console.error('❌ Error calling OpenAI:', error)
+    
+    // Fallback to rule-based response if OpenAI fails
+    return generateFallbackResponse(userMessage, intent, toolResults)
+  }
+}
+
+/**
+ * Fallback response if OpenAI fails
+ */
+function generateFallbackResponse(
+  userMessage: string,
+  intent: string,
+  toolResults: any[]
+): string {
+  // If no tools were executed
+  if (toolResults.length === 0) {
+    return 'مرحباً! أنا المساعد الذكي لمنصة قوى. كيف يمكنني مساعدتك اليوم؟\n\nيمكنني مساعدتك في:\n• إدارة سيرتك الذاتية\n• إصدار الشهادات\n• حجز المواعيد\n• إدارة العقود\n• فتح التذاكر\n• خدمات العمالة المنزلية'
+  }
+
+  // Generate response based on tool results
+  let response = ''
+
+  for (const { tool, result } of toolResults) {
+    if (result.success) {
+      // Success responses
+      switch (tool) {
+        case 'getResumeTool':
+          if (result.data === null || !result.data.resume) {
+            response += 'لا توجد سيرة ذاتية في النظام حالياً. هل تريد إنشاء سيرة جديدة؟\n\n'
+          } else {
+            const resume = result.data.resume
+            response += `📄 **سيرتك الذاتية الحالية:**\n\n`
+            response += `المسمى الوظيفي: ${resume.job_title || 'غير محدد'}\n`
+            response += `النبذة التعريفية: ${resume.summary || 'غير محدد'}\n`
+            response += `سنوات الخبرة: ${resume.experience_years || 0}\n`
+            if (resume.skills && resume.skills.length > 0) {
+              response += `المهارات: ${resume.skills.join('، ')}\n`
+            }
+            if (result.data.courses && result.data.courses.length > 0) {
+              response += `\nالدورات التدريبية (${result.data.courses.length}):\n`
+              result.data.courses.slice(0, 3).forEach((course: any) => {
+                response += `  • ${course.course_name} - ${course.institution}\n`
+              })
+            }
+            response += '\n'
+          }
+          break
+
+        case 'createResumeTool':
+          response += '✅ تم إنشاء سيرتك الذاتية بنجاح!\nوتم فتح تذكرة متابعة لك.\n\n'
+          break
+
+        case 'updateResumeTool':
+          response += '✅ تم تحديث سيرتك الذاتية بنجاح!\nوتم فتح تذكرة متابعة لك.\n\n'
+          break
+
+        case 'addCourseToResumeTool':
+          response += '✅ تم إضافة الدورة التدريبية لسيرتك الذاتية بنجاح!\nوتم فتح تذكرة متابعة لك.\n\n'
+          break
+
+        case 'createCertificateTool':
+          response += '✅ تم إصدار الشهادة بنجاح!\nوتم فتح تذكرة متابعة لك.\n\nيمكنك تنزيل الشهادة من صفحة الشهادات.\n\n'
+          break
+
+        case 'scheduleAppointmentTool':
+          response += '✅ تم حجز موعدك بنجاح!\nوتم فتح تذكرة متابعة لك.\n\nسنرسل لك تذكير قبل الموعد.\n\n'
+          break
+
+        case 'createTicketTool':
+          response += '✅ تم فتح تذكرة دعم بنجاح!\nرقم التذكرة: #' + (result.data?.ticket_number || 'جديد') + '\n\nسيتم متابعتها قريباً.\n\n'
+          break
+
+        case 'renewContractTool':
+          response += '✅ تم تجديد عقدك بنجاح!\nوتم فتح تذكرة متابعة لك.\n\n'
+          break
+
+        case 'createDomesticLaborRequestTool':
+          response += '✅ تم إنشاء طلب العمالة المنزلية بنجاح!\nوتم فتح تذكرة متابعة لك.\n\nسيتم مراجعة طلبك قريباً.\n\n'
+          break
+
+        default:
+          response += result.message ? result.message + '\n\n' : ''
+      }
+    } else {
+      // Error responses
+      response += `⚠️ ${result.error || 'حدث خطأ في تنفيذ العملية'}\n\n`
+    }
+  }
+
+  // Add helpful closing
+  if (response.trim().length > 0) {
+    response += 'هل تحتاج مساعدة في شيء آخر؟'
+  } else {
+    response = 'تم تنفيذ طلبك. هل تحتاج مساعدة في شيء آخر؟'
+  }
+
+  return response.trim()
 }
 
 /**
@@ -145,17 +341,17 @@ function selectTools(intent: string, message: string): ToolName[] {
   switch (intent) {
     case 'create_resume':
       tools.push('getResumeTool') // Always check existing first
-      tools.push('createResumeTool')
+      // Only create if doesn't exist - will be handled by response logic
       break
     
     case 'update_resume':
       tools.push('getResumeTool') // Always get current data first
-      tools.push('updateResumeTool')
+      // Update will require more input from user
       break
     
     case 'add_course':
       tools.push('getResumeTool')
-      tools.push('addCourseToResumeTool')
+      // Add course requires resume ID and course details
       break
     
     case 'view_resume':
@@ -165,7 +361,8 @@ function selectTools(intent: string, message: string): ToolName[] {
     case 'salary_certificate':
     case 'service_certificate':
     case 'labor_license':
-      tools.push('createCertificateTool')
+      // Certificate generation requires user confirmation first
+      // tools.push('createCertificateTool')
       break
     
     case 'view_certificates':
@@ -173,11 +370,7 @@ function selectTools(intent: string, message: string): ToolName[] {
       break
     
     case 'book_appointment':
-      tools.push('scheduleAppointmentTool')
-      break
-    
-    case 'cancel_appointment':
-      tools.push('cancelAppointmentTool')
+      // Booking requires date/time/location - needs conversation
       break
     
     case 'view_appointments':
@@ -185,28 +378,15 @@ function selectTools(intent: string, message: string): ToolName[] {
       break
     
     case 'create_ticket':
-      tools.push('createTicketTool')
-      break
-    
-    case 'close_ticket':
-      tools.push('closeTicketTool')
+      // Ticket creation needs details
       break
     
     case 'check_ticket':
       tools.push('checkTicketStatusTool')
       break
     
-    case 'renew_contract':
+    case 'view_contracts':
       tools.push('checkContractExpiryTool')
-      tools.push('renewContractTool')
-      break
-    
-    case 'update_contract':
-      tools.push('updateContractTool')
-      break
-    
-    case 'domestic_labor':
-      tools.push('createDomesticLaborRequestTool')
       break
   }
 
@@ -222,11 +402,7 @@ function extractToolParameters(toolName: ToolName, message: string, userId: stri
   switch (toolName) {
     case 'createResumeTool':
     case 'updateResumeTool':
-      // Extract resume fields
-      if (message.includes('مهندس')) params.job_title = 'مهندس برمجيات'
-      if (message.includes('محاسب')) params.job_title = 'محاسب'
-      if (message.includes('مدير')) params.job_title = 'مدير'
-      // More intelligent extraction can be added here
+      // These require interactive conversation - parameters will be minimal
       break
 
     case 'createCertificateTool':
@@ -243,96 +419,8 @@ function extractToolParameters(toolName: ToolName, message: string, userId: stri
       params.description = message
       break
 
-    // Add more parameter extraction logic as needed
+    // Most tools just need user_id which is already added
   }
 
   return params
-}
-
-/**
- * Generate agent response based on tool results
- */
-function generateAgentResponse(
-  userMessage: string,
-  intent: string,
-  toolResults: any[],
-  history: AgentMessage[]
-): string {
-  // If no tools were executed
-  if (toolResults.length === 0) {
-    return 'مرحباً! أنا المساعد الذكي لمنصة قوى. كيف يمكنني مساعدتك اليوم؟\n\nيمكنني مساعدتك في:\n• إدارة سيرتك الذاتية\n• إصدار الشهادات\n• حجز المواعيد\n• إدارة العقود\n• فتح التذاكر\n• خدمات العمالة المنزلية'
-  }
-
-  // Generate response based on tool results
-  let response = ''
-
-  for (const { tool, result } of toolResults) {
-    if (result.success) {
-      // Success responses
-      switch (tool) {
-        case 'getResumeTool':
-          if (result.data === null) {
-            response += 'لا توجد سيرة ذاتية في النظام حالياً. هل تريد إنشاء سيرة جديدة؟\n\n'
-          } else {
-            const resume = result.data.resume
-            response += `📄 **سيرتك الذاتية الحالية:**\n\n`
-            response += `المسمى الوظيفي: ${resume.job_title || 'غير محدد'}\n`
-            response += `النبذة التعريفية: ${resume.summary || 'غير محدد'}\n`
-            response += `سنوات الخبرة: ${resume.experience_years || 0}\n`
-            response += `المهارات: ${resume.skills?.length > 0 ? resume.skills.join('، ') : 'لا توجد'}\n`
-            if (result.data.courses?.length > 0) {
-              response += `\nالدورات التدريبية (${result.data.courses.length}):\n`
-              result.data.courses.slice(0, 3).forEach((course: any) => {
-                response += `  • ${course.course_name} - ${course.institution}\n`
-              })
-            }
-            response += '\n'
-          }
-          break
-
-        case 'createResumeTool':
-          response += '✅ تم إنشاء سيرتك الذاتية بنجاح!\nوتم فتح تذكرة متابعة لك.\n\n'
-          break
-
-        case 'updateResumeTool':
-          response += '✅ تم تحديث سيرتك الذاتية بنجاح!\nوتم فتح تذكرة متابعة لك.\n\n'
-          break
-
-        case 'addCourseToResumeTool':
-          response += '✅ تم إضافة الدورة التدريبية لسيرتك الذاتية بنجاح!\nوتم فتح تذكرة متابعة لك.\n\n'
-          break
-
-        case 'createCertificateTool':
-          response += '✅ تم إصدار الشهادة بنجاح!\nوتم فتح تذكرة متابعة لك.\n\nيمكنك تنزيل الشهادة من صفحة الشهادات.\n\n'
-          break
-
-        case 'scheduleAppointmentTool':
-          response += '✅ تم حجز موعدك بنجاح!\nوتم فتح تذكرة متابعة لك.\n\nسنرسل لك تذكير قبل الموعد.\n\n'
-          break
-
-        case 'createTicketTool':
-          response += '✅ تم فتح تذكرة دعم بنجاح!\nرقم التذكرة: #' + (result.data?.ticket_number || 'جديد') + '\n\nسيتم متابعتها قريباً.\n\n'
-          break
-
-        case 'renewContractTool':
-          response += '✅ تم تجديد عقدك بنجاح!\nوتم فتح تذكرة متابعة لك.\n\n'
-          break
-
-        case 'createDomesticLaborRequestTool':
-          response += '✅ تم إنشاء طلب العمالة المنزلية بنجاح!\nوتم فتح تذكرة متابعة لك.\n\nسيتم مراجعة طلبك قريباً.\n\n'
-          break
-
-        default:
-          response += result.message ? result.message + '\n\n' : ''
-      }
-    } else {
-      // Error responses
-      response += `⚠️ ${result.error || 'حدث خطأ في تنفيذ العملية'}\n\n`
-    }
-  }
-
-  // Add helpful closing
-  response += 'هل تحتاج مساعدة في شيء آخر؟'
-
-  return response.trim()
 }
