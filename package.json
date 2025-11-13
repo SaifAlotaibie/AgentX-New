@@ -1,0 +1,53 @@
+{
+  "name": "agentx",
+  "version": "1.0.0",
+  "description": "AI-Powered Digital Assistant for HRSD - Saudi Ministry of Human Resources and Social Development",
+  "main": "index.js",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SaifAlotaibie/AgentX.git"
+  },
+  "keywords": [
+    "ai",
+    "hr",
+    "saudi",
+    "hrsd",
+    "qiwa",
+    "chatbot",
+    "voice-assistant",
+    "nextjs",
+    "supabase"
+  ],
+  "author": "Saif Alotaibie",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/SaifAlotaibie/AgentX/issues"
+  },
+  "homepage": "https://github.com/SaifAlotaibie/AgentX#readme",
+  "dependencies": {
+    "@langchain/core": "^1.0.4",
+    "@langchain/openai": "^1.1.0",
+    "@microsoft/fetch-event-source": "^2.0.1",
+    "@supabase/supabase-js": "^2.47.14",
+    "@tailwindcss/postcss": "^4.1.17",
+    "@types/node": "^24.10.0",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "next": "^15.1.0",
+    "openai": "^6.8.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "typescript": "^5.9.3"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.22",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.17"
+  }
+}
