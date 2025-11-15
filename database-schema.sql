@@ -7,7 +7,8 @@
 -- DROP TABLE IF EXISTS labor_appointments CASCADE;
 -- DROP TABLE IF EXISTS certificates CASCADE;
 -- DROP TABLE IF EXISTS resumes CASCADE;
--- DROP TABLE IF EXISTS domestic_labor_requests CASCADE;
+-- DROP TABLE IF EXISTS proactive_events CASCADE;
+-- DROP TABLE IF EXISTS agent_feedback CASCADE;
 -- DROP TABLE IF EXISTS work_regulations CASCADE;
 -- DROP TABLE IF EXISTS employment_contracts CASCADE;
 -- DROP TABLE IF EXISTS conversations CASCADE;
@@ -20,6 +21,12 @@ CREATE TABLE IF NOT EXISTS user_profile (
   user_id UUID PRIMARY KEY,
   full_name TEXT NOT NULL,
   phone TEXT,
+  email TEXT,
+  nationality TEXT DEFAULT 'سعودي',
+  birth_date TEXT,
+  gender TEXT,
+  address TEXT,
+  employee_number TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -48,16 +55,27 @@ CREATE TABLE IF NOT EXISTS work_regulations (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Domestic Labor Requests Table
-CREATE TABLE IF NOT EXISTS domestic_labor_requests (
+-- Proactive Events Table
+CREATE TABLE IF NOT EXISTS proactive_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES user_profile(user_id) ON DELETE CASCADE,
-  request_type TEXT NOT NULL,
-  worker_nationality TEXT NOT NULL,
-  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'completed')),
-  request_details JSONB DEFAULT '{}',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  event_type TEXT NOT NULL,
+  acted BOOLEAN DEFAULT false,
+  suggested_action TEXT,
+  metadata JSONB DEFAULT '{}',
+  detected_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  action_at TIMESTAMP WITH TIME ZONE
+);
+
+-- Agent Feedback Table
+CREATE TABLE IF NOT EXISTS agent_feedback (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES user_profile(user_id) ON DELETE CASCADE,
+  conversation_id UUID,
+  rating INTEGER CHECK (rating >= 1 AND rating <= 5),
+  feedback_text TEXT,
+  sentiment TEXT CHECK (sentiment IN ('positive', 'neutral', 'negative')),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Certificates Table
@@ -98,8 +116,10 @@ CREATE TABLE IF NOT EXISTS resume_courses (
 CREATE TABLE IF NOT EXISTS labor_appointments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES user_profile(user_id) ON DELETE CASCADE,
-  appointment_type TEXT NOT NULL,
-  appointment_date TEXT NOT NULL,
+  appointment_type TEXT,
+  office_location TEXT NOT NULL,
+  date TEXT NOT NULL,
+  time TEXT NOT NULL,
   status TEXT DEFAULT 'scheduled' CHECK (status IN ('scheduled', 'completed', 'cancelled')),
   notes TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -149,8 +169,9 @@ CREATE TABLE IF NOT EXISTS user_behavior (
 -- Create indexes for better query performance
 CREATE INDEX IF NOT EXISTS idx_employment_contracts_user_id ON employment_contracts(user_id);
 CREATE INDEX IF NOT EXISTS idx_employment_contracts_status ON employment_contracts(status);
-CREATE INDEX IF NOT EXISTS idx_domestic_requests_user_id ON domestic_labor_requests(user_id);
-CREATE INDEX IF NOT EXISTS idx_domestic_requests_status ON domestic_labor_requests(status);
+CREATE INDEX IF NOT EXISTS idx_proactive_events_user_id ON proactive_events(user_id);
+CREATE INDEX IF NOT EXISTS idx_proactive_events_acted ON proactive_events(acted);
+CREATE INDEX IF NOT EXISTS idx_agent_feedback_user_id ON agent_feedback(user_id);
 CREATE INDEX IF NOT EXISTS idx_certificates_user_id ON certificates(user_id);
 CREATE INDEX IF NOT EXISTS idx_resumes_user_id ON resumes(user_id);
 CREATE INDEX IF NOT EXISTS idx_resume_courses_resume_id ON resume_courses(resume_id);

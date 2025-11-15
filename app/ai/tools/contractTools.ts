@@ -3,6 +3,50 @@ import { findByUser, findById, update } from '@/lib/db/db'
 import { EmploymentContract } from '@/lib/db/types'
 import { logAgentAction, updateUserBehavior } from './logger'
 import { createTicketTool } from './ticketTools'
+import * as contractsService from '@/services/qiwa/contractsService'
+
+/**
+ * Get Contracts Tool
+ * View all user contracts with details
+ */
+export const getContractsTool: Tool = {
+  name: 'getContractsTool',
+  description: 'عرض جميع عقود المستخدم مع التفاصيل',
+  parameters: {
+    user_id: 'معرف المستخدم (UUID)',
+  },
+  execute: async (params: { user_id: string }): Promise<ToolResult> => {
+    try {
+      const { user_id } = params
+
+      const contracts = await contractsService.getContracts(user_id)
+      
+      if (!contracts || contracts.length === 0) {
+        return {
+          success: true,
+          data: { contracts: [], count: 0 },
+          message: 'لا توجد عقود مسجلة'
+        }
+      }
+
+      await updateUserBehavior(user_id, {
+        last_seen_service: 'contracts',
+      })
+
+      return {
+        success: true,
+        data: { contracts, count: contracts.length },
+        message: `تم العثور على ${contracts.length} عقد`
+      }
+    } catch (error: any) {
+      console.error('Error in getContractsTool:', error)
+      return {
+        success: false,
+        error: error.message || 'فشل جلب العقود'
+      }
+    }
+  }
+}
 
 /**
  * Check Contract Expiry Tool
@@ -35,7 +79,7 @@ export const checkContractExpiryTool: Tool = {
       const expired: EmploymentContract[] = []
 
       for (const contract of contracts) {
-        if (contract.end_date && (contract as any).contract_status === 'active') {
+        if (contract.end_date && (contract as any).status === 'active') {
           const endDate = new Date(contract.end_date)
           
           if (endDate < now) {
@@ -126,7 +170,7 @@ export const renewContractTool: Tool = {
       // Update contract
       const updates: any = {
         end_date: new_end_date,
-        contract_status: 'active'
+        status: 'active'
       }
 
       if (new_salary) {

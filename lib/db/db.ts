@@ -89,7 +89,11 @@ export async function insert<T>(table: string, data: any): Promise<T | null> {
     .single()
 
   if (error) {
-    console.error(`Error inserting into ${table}:`, error)
+    console.error(`❌ Error inserting into ${table}:`, error)
+    console.error(`📝 Error code: ${error.code}`)
+    console.error(`💡 Error message: ${error.message}`)
+    if (error.hint) console.error(`💡 Hint: ${error.hint}`)
+    if (error.details) console.error(`📋 Details: ${error.details}`)
     return null
   }
 

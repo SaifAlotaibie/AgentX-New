@@ -204,7 +204,7 @@ export const cancelAppointmentTool: Tool = {
         user_id,
         title: 'إلغاء موعد مكتب العمل عبر المساعد الذكي',
         category: 'agent_action',
-        description: `تم إلغاء موعد بتاريخ ${appointment.appointment_date}`
+        description: `تم إلغاء موعد في ${appointment.office_location} بتاريخ ${appointment.date} الساعة ${appointment.time}`
       })
 
       return {

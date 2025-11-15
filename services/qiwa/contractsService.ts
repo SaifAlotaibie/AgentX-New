@@ -33,15 +33,25 @@ export async function endContract(contract_id: string): Promise<EmploymentContra
   return updated
 }
 
-export async function createContract(data: CreateContractInput): Promise<EmploymentContract | null> {
+export async function createContract(data: CreateContractInput & { end_date?: string, status?: string }): Promise<EmploymentContract | null> {
+  console.log('🏗️ Creating contract with data:', data)
+  
   const contractData = {
     ...data,
-    status: 'active',
+    status: data.status || 'active',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   }
 
-  return await insert<EmploymentContract>('employment_contracts', contractData)
+  console.log('📦 Final contract data:', contractData)
+  
+  const result = await insert<EmploymentContract>('employment_contracts', contractData)
+  
+  if (!result) {
+    throw new Error('Failed to create contract - insert returned null')
+  }
+  
+  return result
 }
 
 export async function createMockContract(user_id: string): Promise<EmploymentContract | null> {

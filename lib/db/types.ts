@@ -4,6 +4,12 @@ export interface UserProfile {
   user_id: string
   full_name: string
   phone?: string
+  email?: string
+  nationality?: string
+  birth_date?: string
+  gender?: string
+  address?: string
+  employee_number?: string
   created_at?: string
 }
 
@@ -28,17 +34,6 @@ export interface WorkRegulation {
   category: string
   content: string
   created_at?: string
-}
-
-export interface DomesticLaborRequest {
-  id: string
-  user_id: string
-  request_type: string
-  worker_nationality: string
-  status: 'pending' | 'approved' | 'rejected' | 'completed'
-  request_details: any
-  created_at?: string
-  updated_at?: string
 }
 
 export interface Certificate {
@@ -75,8 +70,10 @@ export interface ResumeCourse {
 export interface LaborAppointment {
   id: string
   user_id: string
-  appointment_type: string
-  appointment_date: string
+  appointment_type?: string
+  office_location: string
+  date: string
+  time: string
   status: 'scheduled' | 'completed' | 'cancelled'
   notes?: string
   created_at?: string
@@ -117,6 +114,27 @@ export interface UserBehavior {
   predicted_need?: string
   intent?: string
   updated_at?: string
+}
+
+export interface ProactiveEvent {
+  id: string
+  user_id: string
+  event_type: string
+  acted: boolean
+  suggested_action?: string
+  metadata?: any
+  detected_at?: string
+  action_at?: string
+}
+
+export interface AgentFeedback {
+  id: string
+  user_id: string
+  conversation_id?: string
+  rating: number
+  feedback_text?: string
+  sentiment: 'positive' | 'neutral' | 'negative'
+  created_at?: string
 }
 
 // API response types

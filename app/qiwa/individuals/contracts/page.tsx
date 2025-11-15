@@ -83,15 +83,37 @@ export default function ContractsPage() {
           { label: 'العقود الوظيفية' }
         ]} />
 
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-3xl p-12 mb-8 shadow-2xl">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-20 h-20 bg-white/20 rounded-2xl flex items-center justify-center text-5xl backdrop-blur-sm">
-                📄
-              </div>
-              <div>
-                <h1 className="text-4xl font-bold">العقود الوظيفية</h1>
-                <p className="text-white/80 text-lg mt-2">عرض وإدارة عقود العمل الخاصة بك</p>
+        <div className="max-w-5xl mx-auto">
+          <div className="bg-gradient-to-br from-slate-800 via-slate-700 to-slate-900 rounded-2xl p-10 mb-8 shadow-xl relative overflow-hidden">
+            {/* Decorative Pattern */}
+            <div className="absolute inset-0 opacity-5">
+              <div className="absolute top-0 left-0 w-full h-full" style={{
+                backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255,255,255,.1) 35px, rgba(255,255,255,.1) 70px)'
+              }}></div>
+            </div>
+            
+            <div className="relative z-10">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h1 className="text-3xl font-bold text-white">العقود الوظيفية</h1>
+                    <p className="text-slate-300 text-base mt-1">عرض وإدارة عقود العمل الخاصة بك</p>
+                  </div>
+                </div>
+                <Link 
+                  href="/qiwa/individuals/contracts/add"
+                  className="flex items-center gap-2 px-6 py-3 bg-white text-slate-900 rounded-xl font-bold hover:bg-slate-50 transition-all shadow-lg hover:shadow-xl"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span>إضافة عقد</span>
+                </Link>
               </div>
             </div>
           </div>
@@ -110,10 +132,25 @@ export default function ContractsPage() {
               </button>
             </div>
           ) : contracts.length === 0 ? (
-            <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
-              <div className="text-6xl mb-4">📄</div>
-              <h3 className="text-2xl font-bold mb-2" style={{ color: '#20183b' }}>لا توجد عقود</h3>
-              <p style={{ color: '#4b515a' }}>لم يتم العثور على أي عقود وظيفية مسجلة</p>
+            <div className="bg-slate-100 rounded-2xl p-16 text-center border-2 border-slate-300">
+              <div className="inline-block p-8 bg-slate-200 rounded-2xl mb-6 border-2 border-slate-400">
+                <svg className="w-24 h-24 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              
+              <h3 className="text-4xl font-black text-slate-900 mb-4">لا توجد عقود</h3>
+              <p className="text-xl text-slate-700 font-bold mb-10">لم يتم العثور على أي عقود وظيفية</p>
+              
+              <Link 
+                href="/qiwa/individuals/contracts/add"
+                className="inline-flex items-center gap-3 px-14 py-6 bg-slate-800 text-white rounded-xl font-bold text-xl shadow-lg hover:bg-slate-900 transition-all border-2 border-slate-900"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                <span>إضافة عقد</span>
+              </Link>
             </div>
           ) : (
             <div className="space-y-6">

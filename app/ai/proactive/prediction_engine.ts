@@ -53,7 +53,7 @@ export async function predictUserNeeds(user_id: string): Promise<UserPrediction>
     total_tickets: tickets?.length || 0,
     open_tickets: tickets?.filter(t => t.status === 'open').length || 0,
     total_contracts: contracts?.length || 0,
-    active_contracts: contracts?.filter(c => c.contract_status === 'active').length || 0,
+    active_contracts: contracts?.filter(c => c.status === 'active').length || 0,
     total_appointments: appointments?.length || 0,
     scheduled_appointments: appointments?.filter(a => a.status === 'scheduled').length || 0,
     total_certificates: certificates?.length || 0,
@@ -80,7 +80,7 @@ export async function predictUserNeeds(user_id: string): Promise<UserPrediction>
   // Priority 2: Contract-related needs
   else if (features.active_contracts > 0) {
     const expiringContract = contracts?.find(c => {
-      if (!c.end_date || c.contract_status !== 'active') return false
+      if (!c.end_date || c.status !== 'active') return false
       const daysUntil = Math.ceil((new Date(c.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
       return daysUntil <= 30 && daysUntil > 0
     })
@@ -182,7 +182,7 @@ function extractTopicsFromConversations(conversations: any[]): string[] {
     'تذاكر': 'tickets',
     'سيرة': 'resumes',
     'دورة': 'courses',
-    'عمالة': 'domestic_labor'
+    'تقييم': 'feedback'
   }
 
   const topicCounts: Record<string, number> = {}

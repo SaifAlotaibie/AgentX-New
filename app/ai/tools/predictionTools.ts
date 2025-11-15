@@ -1,5 +1,5 @@
 import { Tool, ToolResult } from './types'
-import { db, findById, update } from '@/lib/db/db'
+import { db, findById, update, insert } from '@/lib/db/db'
 import { updateUserBehavior } from './logger'
 
 /**
@@ -60,58 +60,60 @@ export const predictUserNeedTool: Tool = {
 
 /**
  * Record Feedback Tool
+ * Stores feedback in agent_feedback table
  */
 export const recordFeedbackTool: Tool = {
   name: 'recordFeedbackTool',
-  description: 'تسجيل تقييم المستخدم',
+  description: 'تسجيل تقييم وملاحظات المستخدم',
   parameters: {
     user_id: 'معرف المستخدم (UUID)',
-    feedback_score: 'التقييم (1-5)',
-    feedback_comment: 'تعليق (اختياري)',
-    interaction_success: 'نجاح التفاعل (true/false)',
+    rating: 'التقييم (1-5)',
+    feedback_text: 'نص التقييم (اختياري)',
+    conversation_id: 'معرف المحادثة (UUID - اختياري)',
   },
   execute: async (params: {
     user_id: string
-    feedback_score: number
-    feedback_comment?: string
-    interaction_success: boolean
+    rating: number
+    feedback_text?: string
+    conversation_id?: string
   }): Promise<ToolResult> => {
     try {
-      const { user_id, feedback_score, feedback_comment, interaction_success } = params
+      const { user_id, rating, feedback_text, conversation_id } = params
 
-      // Validate feedback score
-      if (feedback_score < 1 || feedback_score > 5) {
+      // Validate rating
+      if (rating < 1 || rating > 5) {
         return {
           success: false,
           error: 'التقييم يجب أن يكون بين 1 و 5'
         }
       }
 
-      // Calculate new success rate
-      const behavior: any = await findById('user_behavior', user_id)
-      let newSuccessRate = interaction_success ? 1.0 : 0.0
-      
-      if (behavior?.success_rate !== null && behavior?.success_rate !== undefined) {
-        // Moving average
-        newSuccessRate = (behavior.success_rate * 0.8) + (newSuccessRate * 0.2)
+      // Determine sentiment based on rating
+      let sentiment: 'positive' | 'neutral' | 'negative' = 'neutral'
+      if (rating >= 4) sentiment = 'positive'
+      else if (rating <= 2) sentiment = 'negative'
+
+      // Insert into agent_feedback table
+      const feedbackData = {
+        user_id,
+        conversation_id: conversation_id || null,
+        rating,
+        feedback_text: feedback_text || null,
+        sentiment,
+        created_at: new Date().toISOString()
       }
 
-      // Update user behavior
-      await updateUserBehavior(user_id, {
-        predicted_need: 'feedback_recorded'
-      })
+      const result: any = await insert('agent_feedback', feedbackData)
 
-      // Update feedback fields directly
-      await update('user_behavior', { user_id }, {
-        feedback_score,
-        feedback_comment: feedback_comment || '',
-        last_rating_at: new Date().toISOString()
+      // Update user behavior to reflect feedback was given
+      await updateUserBehavior(user_id, {
+        last_message: `تقييم: ${rating}/5`
       })
 
       return {
         success: true,
-        data: { feedback_score, success_rate: newSuccessRate },
-        message: 'تم تسجيل التقييم بنجاح'
+        data: result.data,
+        message: `شكراً لتقييمك! تم تسجيل تقييمك (${rating}/5) بنجاح`
       }
     } catch (error: any) {
       console.error('Error in recordFeedbackTool:', error)

@@ -82,7 +82,7 @@ export default function ChatAssistant() {
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 left-6 bg-gradient-to-r from-[#006341] to-[#00A878] hover:shadow-2xl text-white rounded-full p-5 shadow-xl z-50 transition-all transform hover:scale-110 animate-pulse"
+          className="bg-gradient-to-r from-[#006341] to-[#00A878] hover:shadow-2xl text-white rounded-full p-5 shadow-xl transition-all transform hover:scale-110 animate-pulse"
           aria-label="فتح المساعد الذكي"
         >
           <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -93,7 +93,7 @@ export default function ChatAssistant() {
 
       {/* Chat Window */}
       {isOpen && (
-        <div className="fixed bottom-6 left-6 w-[420px] h-[650px] bg-white rounded-3xl shadow-2xl z-50 flex flex-col overflow-hidden border border-gray-100">
+        <div className="fixed bottom-24 left-8 w-[420px] h-[650px] bg-white rounded-3xl shadow-2xl z-50 flex flex-col overflow-hidden border border-gray-100">
           
           {/* Header */}
           <div className="bg-gradient-to-r from-[#006341] to-[#00A878] text-white px-6 py-5 rounded-t-3xl">

@@ -1,95 +1,151 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@300;400;500;600;700;800;900&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700;800&display=swap');
+
+@layer base {
+  * {
+    border-color: #D2D6DB;
+  }
+  
+  body {
+    background-color: #fafafa;
+    color: #161616;
+    font-family: 'Saud', 'Google Sans', 'Open Sans', Arial, sans-serif;
+    direction: rtl;
+  }
+  
+  html {
+    font-family: 'Saud', 'Google Sans', 'Open Sans', Arial, sans-serif;
+  }
+}
+
+@layer components {
+  .hrsd-btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.5rem;
+    font-weight: 600;
+    transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+    outline: none;
+  }
+  
+  .hrsd-btn:focus {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    ring: 2px solid var(--primary);
+    ring-offset: 2px;
+  }
+  
+  .hrsd-btn-primary {
+    background-color: var(--primary);
+    color: white;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  }
+  
+  .hrsd-btn-primary:hover {
+    background-color: var(--primary-dark);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  }
+  
+  .hrsd-btn-secondary {
+    background-color: white;
+    border: 2px solid var(--primary);
+    color: var(--primary);
+  }
+  
+  .hrsd-btn-secondary:hover {
+    background-color: #f0fdf4;
+  }
+  
+  .hrsd-btn-outline {
+    border: 1px solid var(--border);
+    background-color: white;
+  }
+  
+  .hrsd-btn-outline:hover {
+    background-color: var(--bg-1);
+  }
+  
+  .hrsd-card {
+    background-color: white;
+    border-radius: 0.75rem;
+    border: 1px solid var(--border);
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  }
+  
+  .hrsd-input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    border: 1px solid var(--border);
+    background-color: white;
+    transition: all 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .hrsd-input:focus {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    ring: 2px solid var(--primary);
+    border-color: transparent;
+  }
+  
+  .hrsd-container {
+    max-width: 80rem;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  @media (min-width: 640px) {
+    .hrsd-container {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+  }
+  
+  @media (min-width: 1024px) {
+    .hrsd-container {
+      padding-left: 2rem;
+      padding-right: 2rem;
+    }
+  }
+  
+  .hrsd-section {
+    padding-top: 3rem;
+    padding-bottom: 3rem;
+  }
+  
+  @media (min-width: 768px) {
+    .hrsd-section {
+      padding-top: 4rem;
+      padding-bottom: 4rem;
+    }
+  }
+  
+  @media (min-width: 1024px) {
+    .hrsd-section {
+      padding-top: 5rem;
+      padding-bottom: 5rem;
+    }
+  }
+}
+
 :root {
-  /* Qiwa Official Colors */
-  --qiwa-primary: #20183B;
-  --qiwa-blue: #0060FF;
-  --qiwa-yellow: #FFF300;
-  --qiwa-white: #FFFFFF;
-  --qiwa-dark-bg-1: #0A0E14;
-  --qiwa-dark-bg-2: #1B1F27;
-  --qiwa-dark-bg-3: #173255;
-  --qiwa-light-blue-1: #F0F7FF;
-  --qiwa-light-blue-2: #CDE2F4;
-  --qiwa-light-blue-3: #72AADC;
-  --qiwa-success-bg: #E5F1EC;
-  --qiwa-error: #B52B2B;
-  --qiwa-text-primary: #4B515A;
-  --qiwa-text-secondary: #93979C;
-  --qiwa-border-light: #E6E6E7;
-  --qiwa-bg-soft: #F2F2F2;
-  --qiwa-border-gray: #C8C9CB;
+  --primary: #1B8354;
+  --primary-dark: #14573A;
+  --primary-light: #ABEFCC;
+  --secondary: #eab308;
+  --text-primary: #161616;
+  --text-secondary: #676C77;
+  --border: #D2D6DB;
+  --bg-1: #fafafa;
+  --bg-2: #f0fdf4;
+  --bg-3: #F1F4F9;
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-body {
-  font-family: 'Inter', 'Noto Kufi Arabic', sans-serif;
-  direction: rtl;
-  background-color: var(--qiwa-bg-soft);
-  color: var(--qiwa-text-primary);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-/* Typography */
-h1, h2, h3, h4, h5, h6 {
-  font-family: 'Inter', 'Noto Kufi Arabic', sans-serif;
-  font-weight: 700;
-  color: var(--qiwa-primary);
-}
-
-/* Scrollbar Styling */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--qiwa-border-light);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--qiwa-blue);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--qiwa-primary);
-}
-
-/* Custom Utilities */
-.qiwa-gradient-primary {
-  background: linear-gradient(135deg, var(--qiwa-primary) 0%, var(--qiwa-dark-bg-3) 100%);
-}
-
-.qiwa-gradient-blue {
-  background: linear-gradient(135deg, var(--qiwa-blue) 0%, var(--qiwa-light-blue-3) 100%);
-}
-
-.qiwa-shadow-card {
-  box-shadow: 0 2px 8px rgba(32, 24, 59, 0.08);
-}
-
-.qiwa-shadow-hover {
-  box-shadow: 0 4px 16px rgba(32, 24, 59, 0.12);
-}
-
-.qiwa-transition {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Animations */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -101,11 +157,7 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-.animate-fade-in {
-  animation: fadeIn 0.4s ease-out;
-}
-
-@keyframes slideInRight {
+@keyframes slideIn {
   from {
     opacity: 0;
     transform: translateX(-20px);
@@ -116,198 +168,180 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-.animate-slide-in-right {
-  animation: slideInRight 0.4s ease-out;
+@keyframes gradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
-/* Button Styles */
-.qiwa-btn-primary {
-  background-color: var(--qiwa-blue);
-  color: white;
-  font-weight: 600;
-  padding: 12px 24px;
-  border-radius: 8px;
-  border: none;
-  cursor: pointer;
-  transition: all 0.3s ease;
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
 
-.qiwa-btn-primary:hover {
-  background-color: var(--qiwa-primary);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 96, 255, 0.3);
+@keyframes shine {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
 }
 
-.qiwa-btn-secondary {
-  background-color: transparent;
-  color: var(--qiwa-blue);
-  font-weight: 600;
-  padding: 12px 24px;
-  border-radius: 8px;
-  border: 2px solid var(--qiwa-blue);
-  cursor: pointer;
-  transition: all 0.3s ease;
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
-.qiwa-btn-secondary:hover {
-  background-color: var(--qiwa-blue);
-  color: white;
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
 }
 
-/* Card Styles */
-.qiwa-card {
-  background: white;
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 2px 8px rgba(32, 24, 59, 0.08);
-  transition: all 0.3s ease;
+/* Advanced 3D Rotation */
+@keyframes rotate3d {
+  0% {
+    transform: rotateY(0deg) rotateX(0deg);
+  }
+  50% {
+    transform: rotateY(180deg) rotateX(10deg);
+  }
+  100% {
+    transform: rotateY(360deg) rotateX(0deg);
+  }
 }
 
-.qiwa-card:hover {
-  box-shadow: 0 4px 16px rgba(32, 24, 59, 0.12);
-  transform: translateY(-2px);
+/* Orbit Animation */
+@keyframes orbit {
+  from {
+    transform: rotate(0deg) translateY(-80px) rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg) translateY(-80px) rotate(-360deg);
+  }
 }
 
-/* Input Styles */
-.qiwa-input {
-  width: 100%;
-  padding: 12px 16px;
-  border: 2px solid var(--qiwa-border-light);
-  border-radius: 8px;
-  font-size: 14px;
-  transition: all 0.3s ease;
-  font-family: 'Inter', 'Noto Kufi Arabic', sans-serif;
+/* Gradient Animation */
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
-.qiwa-input:focus {
-  outline: none;
-  border-color: var(--qiwa-blue);
-  box-shadow: 0 0 0 3px rgba(0, 96, 255, 0.1);
+.animate-gradient {
+  animation: gradient 3s ease infinite;
 }
 
-/* Badge Styles */
-.qiwa-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 600;
+/* Slide In Animation */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.qiwa-badge-yellow {
-  background-color: var(--qiwa-yellow);
-  color: var(--qiwa-primary);
+.animate-slideIn {
+  animation: slideIn 0.4s ease-out;
 }
 
-.qiwa-badge-blue {
-  background-color: var(--qiwa-light-blue-1);
-  color: var(--qiwa-blue);
+/* ====================================
+   QIWA DESIGN SYSTEM
+   ==================================== */
+
+:root {
+  --qiwa-primary: #0A74A6;
+  --qiwa-blue: #0098D4;
+  --qiwa-dark: #0A1F4D;
+  --qiwa-light: #F8F9FB;
+  --qiwa-text-primary: #2E2E2E;
+  --qiwa-text-secondary: #676C77;
+  --qiwa-border-light: #E5E7EB;
+  --qiwa-success: #059669;
+  --qiwa-warning: #EA580C;
+  --qiwa-error: #DC2626;
 }
 
-.qiwa-badge-success {
-  background-color: var(--qiwa-success-bg);
-  color: #1B8354;
-}
-
-.qiwa-badge-error {
-  background-color: #FDECEA;
-  color: var(--qiwa-error);
-}
-
-/* Sidebar */
+/* Qiwa Sidebar */
 .qiwa-sidebar {
   position: fixed;
-  right: 0;
   top: 0;
-  height: 100vh;
+  right: 0;
   width: 280px;
+  height: 100vh;
   background: white;
-  box-shadow: -2px 0 8px rgba(32, 24, 59, 0.06);
-  z-index: 100;
+  border-left: 1px solid var(--qiwa-border-light);
   overflow-y: auto;
+  transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 100;
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.05);
 }
 
-.qiwa-sidebar-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 24px;
-  color: var(--qiwa-text-primary);
-  font-weight: 500;
-  transition: all 0.3s ease;
-  cursor: pointer;
-  text-decoration: none;
-}
-
-.qiwa-sidebar-item:hover {
-  background-color: var(--qiwa-light-blue-1);
-  color: var(--qiwa-blue);
-}
-
-.qiwa-sidebar-item.active {
-  background-color: var(--qiwa-blue);
-  color: white;
-  font-weight: 600;
-}
-
-/* Main Content Area */
-.qiwa-main-content {
-  margin-right: 280px;
-  min-height: 100vh;
-  padding: 24px;
-}
-
-@media (max-width: 1024px) {
+@media (max-width: 1023px) {
   .qiwa-sidebar {
     transform: translateX(100%);
-    transition: transform 0.3s ease;
   }
   
   .qiwa-sidebar.open {
     transform: translateX(0);
   }
-  
-  .qiwa-main-content {
-    margin-right: 0;
+}
+
+/* Qiwa Sidebar Item */
+.qiwa-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  margin: 0.25rem 0;
+  border-radius: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--qiwa-text-primary);
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.qiwa-sidebar-item:hover {
+  background-color: #F3F4F6;
+}
+
+.qiwa-sidebar-item.active {
+  background: linear-gradient(135deg, var(--qiwa-primary) 0%, var(--qiwa-blue) 100%);
+  color: white;
+  box-shadow: 0 4px 6px -1px rgba(10, 116, 166, 0.2), 0 2px 4px -1px rgba(10, 116, 166, 0.1);
+}
+
+/* Qiwa Page Content */
+.qiwa-page-content {
+  min-height: 100vh;
+  background-color: var(--qiwa-light);
+  padding-right: 280px;
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+}
+
+@media (max-width: 1023px) {
+  .qiwa-page-content {
+    padding-right: 1rem;
+    padding-left: 1rem;
   }
 }
 
-/* Loading Spinner */
-.qiwa-spinner {
-  border: 3px solid var(--qiwa-border-light);
-  border-top: 3px solid var(--qiwa-blue);
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  animation: spin 0.8s linear infinite;
+/* Qiwa Container */
+.qiwa-container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 2rem;
 }
 
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-/* Toast Notifications */
-.qiwa-toast {
-  position: fixed;
-  top: 80px;
-  left: 24px;
-  background: white;
-  padding: 16px 24px;
-  border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(32, 24, 59, 0.15);
-  z-index: 9999;
-  animation: slideInRight 0.3s ease-out;
-}
-
-/* Responsive */
 @media (max-width: 768px) {
-  .qiwa-main-content {
-    padding: 16px;
-  }
-  
-  .qiwa-card {
-    padding: 16px;
+  .qiwa-container {
+    padding: 0 1rem;
   }
 }

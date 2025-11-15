@@ -60,7 +60,9 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'create') {
-      const { user_id, employer_name, position, salary, start_date, contract_type } = body
+      const { user_id, employer_name, position, salary, start_date, end_date, contract_type, status } = body
+
+      console.log('📥 Received contract creation request:', { user_id, employer_name, position, salary, start_date, end_date, contract_type, status })
 
       if (!user_id || !employer_name || !position || !salary || !start_date || !contract_type) {
         return NextResponse.json<ApiResponse>({
@@ -76,20 +78,32 @@ export async function POST(request: NextRequest) {
         }, { status: 400 })
       }
 
-      const result = await contractsService.createContract({
-        user_id,
-        employer_name,
-        position,
-        salary,
-        start_date,
-        contract_type
-      })
+      try {
+        const result = await contractsService.createContract({
+          user_id,
+          employer_name,
+          position,
+          salary,
+          start_date,
+          end_date,
+          contract_type,
+          status
+        })
 
-      return NextResponse.json<ApiResponse>({
-        success: true,
-        data: result,
-        message: 'Contract created successfully'
-      })
+        console.log('✅ Contract created successfully:', result)
+
+        return NextResponse.json<ApiResponse>({
+          success: true,
+          data: result,
+          message: 'Contract created successfully'
+        })
+      } catch (createError: any) {
+        console.error('❌ Error creating contract:', createError)
+        return NextResponse.json<ApiResponse>({
+          success: false,
+          error: createError.message || 'Failed to create contract'
+        }, { status: 500 })
+      }
     }
 
     return NextResponse.json<ApiResponse>({

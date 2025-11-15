@@ -24,7 +24,7 @@ export const contractExpiryTrigger: ProactiveTrigger = {
     const { data: contracts } = await db
       .from('employment_contracts')
       .select('*, user_profile(full_name)')
-      .eq('contract_status', 'active')
+      .eq('status', 'active')
 
     if (!contracts) return events
 
@@ -181,44 +181,7 @@ export const dissatisfactionTrigger: ProactiveTrigger = {
   }
 }
 
-// Trigger 5: Pending Domestic Labor Requests
-export const domesticLaborPendingTrigger: ProactiveTrigger = {
-  name: 'domestic_labor_pending_check',
-  check: async () => {
-    const events: ProactiveEvent[] = []
-
-    const { data: requests } = await db
-      .from('domestic_labor_requests')
-      .select('*')
-      .eq('status', 'pending')
-
-    if (!requests) return events
-
-    for (const request of requests) {
-      const createdDate = new Date(request.created_at)
-      const now = new Date()
-      const daysPending = Math.ceil((now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24))
-
-      if (daysPending >= 5) {
-        events.push({
-          user_id: request.user_id,
-          event_type: 'domestic_labor_request_pending_long',
-          metadata: {
-            request_id: request.id,
-            worker_name: request.worker_name,
-            request_type: request.request_type,
-            days_pending: daysPending
-          },
-          suggested_action: `طلب العمالة المنزلية لـ ${request.worker_name} معلق منذ ${daysPending} يوم. هل تحتاج مساعدة؟`
-        })
-      }
-    }
-
-    return events
-  }
-}
-
-// Trigger 6: Incomplete Resume Detection
+// Trigger 5: Incomplete Resume Detection
 export const incompleteResumeTrigger: ProactiveTrigger = {
   name: 'incomplete_resume_check',
   check: async () => {
@@ -267,7 +230,6 @@ export async function executeAllTriggers(): Promise<ProactiveEvent[]> {
     appointmentReminderTrigger,
     ticketFollowUpTrigger,
     dissatisfactionTrigger,
-    domesticLaborPendingTrigger,
     incompleteResumeTrigger
   ]
 

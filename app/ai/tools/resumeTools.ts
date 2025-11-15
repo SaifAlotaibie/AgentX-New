@@ -67,10 +67,11 @@ export const getResumeTool: Tool = {
  */
 export const createResumeTool: Tool = {
   name: 'createResumeTool',
-  description: 'إنشاء سيرة ذاتية جديدة. الحقول المدعومة فقط: job_title, summary, experience_years, skills',
+  description: 'إنشاء سيرة ذاتية جديدة. الحقول المدعومة: job_title, education, summary, experience_years, skills',
   parameters: {
     user_id: 'معرف المستخدم (UUID)',
     job_title: 'المسمى الوظيفي',
+    education: 'المؤهل الأكاديمي (اختياري)',
     summary: 'النبذة التعريفية (اختياري)',
     experience_years: 'سنوات الخبرة (رقم)',
     skills: 'المهارات (array من strings)',
@@ -78,6 +79,7 @@ export const createResumeTool: Tool = {
   execute: async (params: {
     user_id: string
     job_title: string
+    education?: string
     summary?: string
     experience_years?: number
     skills?: string[]
@@ -102,20 +104,38 @@ export const createResumeTool: Tool = {
         }
       }
 
-      // Create resume
+      // Create resume with REAL Supabase operation
       const resumeData = {
         user_id,
         job_title,
+        education: params.education || '',
         summary: summary || '',
         experience_years: experience_years || 0,
         skills: skills || [],
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       }
 
-      const result: any = await insert('resumes', resumeData)
+      console.log('💾 Creating resume with data:', resumeData)
+
+      const { data: result, error: insertError } = await db
+        .from('resumes')
+        .insert(resumeData)
+        .select()
+        .single()
+
+      if (insertError || !result) {
+        console.error('❌ Failed to create resume:', insertError)
+        return {
+          success: false,
+          error: insertError?.message || 'فشل إنشاء السيرة الذاتية'
+        }
+      }
+
+      console.log('✅ Resume created successfully:', result.id)
 
       // Log action
-      await logAgentAction(user_id, 'create_resume', params, result)
+      await logAgentAction(user_id, 'create_resume', params, { success: true, resume: result })
 
       // Update user behavior
       await updateUserBehavior(user_id, {
@@ -132,7 +152,7 @@ export const createResumeTool: Tool = {
 
       return {
         success: true,
-        data: result.data,
+        data: result,
         message: 'تم إنشاء السيرة الذاتية بنجاح وفتح تذكرة متابعة'
       }
     } catch (error: any) {
@@ -146,15 +166,16 @@ export const createResumeTool: Tool = {
 }
 
 /**
- * Update Resume Tool - Update existing resume
+ * Update Resume Tool - Update existing resume with REAL Supabase operations
  * Auto-creates ticket after update
  */
 export const updateResumeTool: Tool = {
   name: 'updateResumeTool',
-  description: 'تحديث سيرة ذاتية موجودة. الحقول المدعومة فقط: job_title, summary, experience_years, skills',
+  description: 'تحديث سيرة ذاتية موجودة. الحقول المدعومة: job_title, education, summary, experience_years, skills',
   parameters: {
     user_id: 'معرف المستخدم (UUID)',
     job_title: 'المسمى الوظيفي (اختياري)',
+    education: 'المؤهل الأكاديمي (اختياري)',
     summary: 'النبذة التعريفية (اختياري)',
     experience_years: 'سنوات الخبرة (اختياري)',
     skills: 'المهارات (اختياري)',
@@ -162,6 +183,7 @@ export const updateResumeTool: Tool = {
   execute: async (params: {
     user_id: string
     job_title?: string
+    education?: string
     summary?: string
     experience_years?: number
     skills?: string[]
@@ -169,16 +191,65 @@ export const updateResumeTool: Tool = {
     try {
       const { user_id, ...updates } = params
 
+      console.log('🔧 updateResumeTool - Starting update for user:', user_id)
+      console.log('📝 Update params:', updates)
+
       // Check if resume exists
       const existing = await findByUser<Resume>('resumes', user_id)
       if (!existing || existing.length === 0) {
+        console.log('⚠️  Resume not found - Creating new one automatically')
+        
+        // إنشاء سيرة ذاتية جديدة تلقائياً بناءً على المعلومات المقدمة
+        const newResumeData = {
+          user_id,
+          job_title: updates.job_title || 'موظف',
+          education: updates.education || '',
+          summary: updates.summary || '',
+          experience_years: updates.experience_years || 0,
+          skills: updates.skills || [],
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+
+        console.log('💾 Creating new resume automatically:', newResumeData)
+
+        const { data: newResume, error: createError } = await db
+          .from('resumes')
+          .insert(newResumeData)
+          .select()
+          .single()
+
+        if (createError || !newResume) {
+          console.error('❌ Failed to create resume:', createError)
+          return {
+            success: false,
+            error: `فشل إنشاء السيرة الذاتية: ${createError?.message || 'خطأ غير معروف'}`
+          }
+        }
+
+        console.log('✅ New resume created successfully:', newResume.id)
+
+        // Log action
+        await logAgentAction(user_id, 'create_resume_auto', params, { success: true, resume: newResume })
+        await updateUserBehavior(user_id, { last_seen_service: 'resume' })
+
+        // Auto-create ticket
+        await createTicketTool.execute({
+          user_id,
+          title: 'إنشاء سيرة ذاتية تلقائياً عبر المساعد الذكي',
+          category: 'agent_action',
+          description: `تم إنشاء سيرة ذاتية جديدة تلقائياً بناءً على طلب التحديث`
+        })
+
         return {
-          success: false,
-          error: 'المستخدم ليس لديه سيرة ذاتية. استخدم createResumeTool لإنشاء سيرة جديدة'
+          success: true,
+          data: newResume,
+          message: 'تم إنشاء سيرة ذاتية جديدة وحفظ المعلومات بنجاح! 🎉'
         }
       }
 
       const resumeId = existing[0].id
+      console.log('✅ Found resume:', resumeId)
 
       // Filter out undefined values
       const cleanUpdates = Object.fromEntries(
@@ -186,17 +257,48 @@ export const updateResumeTool: Tool = {
       )
 
       if (Object.keys(cleanUpdates).length === 0) {
+        console.log('⚠️ No updates provided')
         return {
           success: false,
           error: 'لم يتم تقديم أي تحديثات'
         }
       }
 
-      // Update resume
-      const result: any = await update('resumes', { id: resumeId }, cleanUpdates)
+      // Add updated_at timestamp
+      cleanUpdates.updated_at = new Date().toISOString()
+
+      console.log('💾 Performing REAL Supabase update with:', cleanUpdates)
+
+      // REAL Supabase update operation
+      const { data: updatedResume, error: updateError } = await db
+        .from('resumes')
+        .update(cleanUpdates)
+        .eq('user_id', user_id)
+        .select()
+        .single()
+
+      if (updateError) {
+        console.error('❌ Supabase update error:', updateError)
+        console.error('Error code:', updateError.code)
+        console.error('Error message:', updateError.message)
+        return {
+          success: false,
+          error: `فشل تحديث السيرة الذاتية: ${updateError.message}`
+        }
+      }
+
+      if (!updatedResume) {
+        console.error('❌ No resume returned after update')
+        return {
+          success: false,
+          error: 'فشل تحديث السيرة الذاتية'
+        }
+      }
+
+      console.log('✅ Resume updated successfully:', updatedResume.id)
 
       // Log action
-      await logAgentAction(user_id, 'update_resume', params, result)
+      await logAgentAction(user_id, 'update_resume', params, { success: true, resume: updatedResume })
 
       // Update user behavior
       await updateUserBehavior(user_id, {
@@ -204,7 +306,7 @@ export const updateResumeTool: Tool = {
       })
 
       // Auto-create ticket (MANDATORY)
-      const updatedFields = Object.keys(cleanUpdates).join('، ')
+      const updatedFields = Object.keys(cleanUpdates).filter(k => k !== 'updated_at').join('، ')
       await createTicketTool.execute({
         user_id,
         title: 'تحديث السيرة الذاتية عبر المساعد الذكي',
@@ -214,11 +316,11 @@ export const updateResumeTool: Tool = {
 
       return {
         success: true,
-        data: result.data,
+        data: updatedResume,
         message: 'تم تحديث السيرة الذاتية بنجاح وفتح تذكرة متابعة'
       }
     } catch (error: any) {
-      console.error('Error in updateResumeTool:', error)
+      console.error('❌ Error in updateResumeTool:', error)
       return {
         success: false,
         error: error.message || 'فشل تحديث السيرة الذاتية'

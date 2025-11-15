@@ -21,7 +21,7 @@ export const getCertificatesTool: Tool = {
       let certificates = await findByUser<Certificate>('certificates', user_id)
       
       if (type) {
-        certificates = certificates.filter((c: any) => c.type === type)
+        certificates = certificates.filter((c: any) => c.certificate_type === type)
       }
 
       await updateUserBehavior(user_id, {
@@ -78,7 +78,7 @@ export const createCertificateTool: Tool = {
         // Fetch user profile and contract data
         const profile: any = await findById('user_profile', user_id)
         const contracts: any[] = await findByUser('employment_contracts', user_id)
-        const activeContract: any = contracts?.find((c: any) => c.contract_status === 'active')
+        const activeContract: any = contracts?.find((c: any) => c.status === 'active')
 
         if (!profile) {
           return {
@@ -136,9 +136,9 @@ export const createCertificateTool: Tool = {
       // Create certificate
       const certificateData = {
         user_id,
-        type,
-        status: 'issued',
+        certificate_type: type,
         content: certificateContent,
+        issue_date: new Date().toISOString(),
         created_at: new Date().toISOString()
       }
 

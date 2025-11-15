@@ -34,6 +34,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { user_id, ...resumeData } = body
 
+    console.log('📨 POST /api/qiwa/resume - user_id:', user_id)
+    console.log('📋 Resume data:', JSON.stringify(resumeData, null, 2))
+
     if (!user_id) {
       return NextResponse.json<ApiResponse>({
         success: false,
@@ -43,16 +46,31 @@ export async function POST(request: NextRequest) {
 
     const result = await resumeService.updateResume(user_id, resumeData)
 
+    if (!result) {
+      return NextResponse.json<ApiResponse>({
+        success: false,
+        error: 'فشل حفظ السيرة الذاتية. الرجاء المحاولة مرة أخرى.'
+      }, { status: 500 })
+    }
+
+    console.log('✅ Resume saved successfully')
+    
     return NextResponse.json<ApiResponse>({
       success: true,
       data: result,
-      message: 'Resume updated successfully'
+      message: 'Resume saved successfully'
     })
   } catch (error: any) {
-    console.error('POST /api/qiwa/resume error:', error)
+    console.error('❌ POST /api/qiwa/resume error:', error)
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    })
+    
     return NextResponse.json<ApiResponse>({
       success: false,
-      error: error.message || 'Internal server error'
+      error: error.message || 'حدث خطأ في الخادم'
     }, { status: 500 })
   }
 }

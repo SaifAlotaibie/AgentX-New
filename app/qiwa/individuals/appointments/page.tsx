@@ -224,10 +224,7 @@ export default function AppointmentsPage() {
                       <div>
                         <h4 className="font-bold text-lg mb-1" style={{ color: '#20183b' }}>{appointment.appointment_type}</h4>
                         <p className="text-sm text-gray-500">
-                          {new Date(appointment.appointment_date).toLocaleString('ar-SA', { 
-                            dateStyle: 'full', 
-                            timeStyle: 'short' 
-                          })}
+                          {appointment.date} - {appointment.time}
                         </p>
                       </div>
                       <span className={`px-4 py-1 rounded-full text-sm font-bold ${

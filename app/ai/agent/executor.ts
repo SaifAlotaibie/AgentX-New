@@ -1,7 +1,8 @@
 import { OpenAI } from 'openai'
 import { ALL_TOOLS, ToolName } from '../tools'
 import AGENT_SYSTEM_PROMPT from './system_prompt'
-import { logAgentAction } from '../tools/logger'
+import { logAgentAction, updateUserBehavior } from '../tools/logger'
+import { executeProactiveEngineForUser, getProactiveEventsForUser } from '../proactive'
 
 interface AgentMessage {
   role: 'user' | 'assistant' | 'system'
@@ -32,6 +33,13 @@ export async function executeAgent(
   try {
     console.log('🤖 Agent received message:', userMessage)
     console.log('👤 User ID:', userId)
+
+    // Step 0: PROACTIVE ENGINE - Check for proactive events and predictions
+    console.log('🔮 Running Proactive Engine...')
+    const proactiveResult = await executeProactiveEngineForUser(userId)
+    const pendingEvents = await getProactiveEventsForUser(userId, 3)
+    
+    console.log(`🎯 Proactive: ${pendingEvents.length} pending events, ${proactiveResult.predictions.size} predictions`)
 
     // Step 1: Detect intent and select appropriate tools
     const intent = detectIntent(userMessage)
@@ -71,20 +79,30 @@ export async function executeAgent(
       }
     }
 
-    // Step 3: Use OpenAI to generate intelligent response
+    // Step 3: Use OpenAI to generate intelligent response with proactive context
     const response = await generateIntelligentResponse(
       userMessage,
       intent,
       toolResults,
       conversationHistory,
-      userId
+      userId,
+      pendingEvents,
+      proactiveResult
     )
+
+    // Update user behavior
+    await updateUserBehavior(userId, {
+      last_message: userMessage,
+      intent: intent,
+      predicted_need: proactiveResult.predictions.get(userId)?.predicted_need || null
+    })
 
     // Log agent action
     await logAgentAction(userId, 'chat_response', {
       message: userMessage,
       intent,
-      tools_used: toolsUsed
+      tools_used: toolsUsed,
+      proactive_events: pendingEvents.length
     }, {
       response,
       tools_executed: toolResults.length
@@ -94,7 +112,11 @@ export async function executeAgent(
       response,
       tools_used: toolsUsed,
       reasoning: `Intent: ${intent}، Tools: ${toolsUsed.join('، ')}`,
-      proactive_suggestions: []
+      proactive_suggestions: pendingEvents.map(e => ({
+        type: e.event_type,
+        message: e.suggested_action,
+        id: e.id
+      }))
     }
   } catch (error: any) {
     console.error('❌ Error in executeAgent:', error)
@@ -113,28 +135,60 @@ async function generateIntelligentResponse(
   intent: string,
   toolResults: any[],
   history: AgentMessage[],
-  userId: string
+  userId: string,
+  pendingEvents: any[] = [],
+  proactiveResult: any = null
 ): Promise<string> {
   try {
-    // Build context from tool results
-    let toolContext = ''
+    // Build context from tool results - HIDE TOOL NAMES from user
+    let toolContext = '\n\n# ⚠️ CRITICAL INSTRUCTION: NEVER mention tool names to the user!\n'
+    toolContext += '# Present results naturally like a real government employee.\n'
+    
+    // Add proactive context if available
+    if (pendingEvents.length > 0) {
+      toolContext += '\n\n## 🔔 أحداث استباقية مهمة (عالج بذكاء):\n'
+      toolContext += 'هناك تنبيهات مهمة للمستخدم. استخدمها لتقديم قيمة استباقية:\n'
+      pendingEvents.forEach((event, i) => {
+        toolContext += `${i + 1}. **${event.event_type}**: ${event.suggested_action}\n`
+        toolContext += `   - متى: ${new Date(event.detected_at).toLocaleDateString('ar-SA')}\n`
+      })
+      toolContext += '\n⚠️ اذكر هذه التنبيهات بطريقة طبيعية ومفيدة!\n'
+    }
+
+    // Add prediction context if available
+    if (proactiveResult?.predictions?.size > 0) {
+      const prediction = proactiveResult.predictions.get(userId)
+      if (prediction && prediction.confidence > 0.6) {
+        toolContext += `\n\n## 🎯 توقع احتياجات المستخدم (استخدم بذكاء):\n`
+        toolContext += `- التوقع: ${prediction.predicted_need}\n`
+        toolContext += `- الثقة: ${(prediction.confidence * 100).toFixed(0)}%\n`
+        toolContext += `- الأسباب: ${prediction.reasoning}\n`
+        toolContext += '\n⚠️ استخدم هذا لتقديم اقتراحات استباقية!\n'
+      }
+    }
+    
     if (toolResults.length > 0) {
-      toolContext = '\n\n## نتائج الأدوات المنفذة:\n'
+      toolContext += '\n## نتائج العمليات (استخدم داخلياً فقط - لا تذكر أسماء الأدوات):\n'
       for (const { tool, result } of toolResults) {
-        toolContext += `\n### ${tool}:\n`
         if (result.success) {
-          toolContext += `✅ نجح\n`
+          toolContext += `\n✅ العملية نجحت\n`
           if (result.data) {
-            toolContext += `البيانات: ${JSON.stringify(result.data, null, 2)}\n`
+            toolContext += `البيانات المتوفرة: ${JSON.stringify(result.data, null, 2)}\n`
           }
           if (result.message) {
             toolContext += `الرسالة: ${result.message}\n`
           }
         } else {
-          toolContext += `❌ فشل\n`
+          toolContext += `\n❌ العملية فشلت\n`
           toolContext += `الخطأ: ${result.error || 'خطأ غير معروف'}\n`
         }
       }
+      
+      toolContext += '\n⚠️ تذكير: اعرض هذه النتائج بطريقة طبيعية بدون ذكر:\n'
+      toolContext += '- أسماء الأدوات (getResumeTool، updateResumeTool، إلخ)\n'
+      toolContext += '- العمليات التقنية (استعلامات قاعدة البيانات، API calls)\n'
+      toolContext += '- التفاصيل الداخلية للنظام\n'
+      toolContext += 'تحدث كموظف حكومي حقيقي يساعد مواطن.\n'
     }
 
     // Build conversation history
@@ -282,12 +336,49 @@ function generateFallbackResponse(
 function detectIntent(message: string): string {
   const msg = message.toLowerCase()
 
-  // Resume intents
-  if (msg.includes('سيرة') || msg.includes('سيرتي') || msg.includes('cv')) {
-    if (msg.includes('سوي') || msg.includes('انشئ') || msg.includes('اعمل')) return 'create_resume'
-    if (msg.includes('حدث') || msg.includes('عدل') || msg.includes('غير')) return 'update_resume'
-    if (msg.includes('دورة') || msg.includes('كورس')) return 'add_course'
+  // Resume intents - Enhanced detection
+  if (msg.includes('سيرة') || msg.includes('سيرتي') || msg.includes('cv') || msg.includes('resume')) {
+    if (msg.includes('سو ') || msg.includes('سوي') || msg.includes('انشئ') || msg.includes('انشي') || msg.includes('اعمل') || msg.includes('اسوي') || msg.includes('ابي سيرة') || msg.includes('create') || msg.includes('اضف سيرة')) return 'create_resume'
+    if (msg.includes('حدث') || msg.includes('عدل') || msg.includes('غير') || msg.includes('اخلي') || msg.includes('خلي') || msg.includes('خل') || msg.includes('update') || msg.includes('change')) return 'update_resume'
+    if (msg.includes('دورة') || msg.includes('كورس') || msg.includes('course')) return 'add_course'
     return 'view_resume'
+  }
+
+  // Direct resume field updates (without mentioning "سيرة")
+  // Experience years
+  if (msg.includes('سنوات') && msg.includes('خبر')) {
+    if (msg.includes('حدث') || msg.includes('عدل') || msg.includes('غير') || msg.includes('اخلي') || msg.includes('خلي') || msg.includes('خل') || msg.includes('سوي') || msg.includes('ابي')) {
+      return 'update_resume'
+    }
+    return 'view_resume'
+  }
+  
+  // Job title updates - ENHANCED
+  if (msg.includes('مسمى') || msg.includes('وظيف') || msg.includes('منصب') || msg.includes('job title') || msg.includes('position')) {
+    if (msg.includes('حدث') || msg.includes('عدل') || msg.includes('غير') || msg.includes('اخلي') || msg.includes('خلي') || msg.includes('خل') || msg.includes('سوي') || msg.includes('update') || msg.includes('change') || msg.includes('make')) {
+      return 'update_resume'
+    }
+  }
+  
+  // Education updates
+  if (msg.includes('مؤهل') || msg.includes('تعليم') || msg.includes('دراس') || msg.includes('education') || msg.includes('degree')) {
+    if (msg.includes('حدث') || msg.includes('عدل') || msg.includes('غير') || msg.includes('اخلي') || msg.includes('خلي') || msg.includes('خل') || msg.includes('update') || msg.includes('change')) {
+      return 'update_resume'
+    }
+  }
+  
+  // Skills updates
+  if (msg.includes('مهار') || msg.includes('قدر') || msg.includes('skill')) {
+    if (msg.includes('حدث') || msg.includes('عدل') || msg.includes('غير') || msg.includes('اخلي') || msg.includes('خلي') || msg.includes('خل') || msg.includes('اضف') || msg.includes('ضيف') || msg.includes('update') || msg.includes('add')) {
+      return 'update_resume'
+    }
+  }
+  
+  // Summary updates
+  if (msg.includes('ملخص') || msg.includes('نبذة') || msg.includes('مخلص') || msg.includes('summary') || msg.includes('bio')) {
+    if (msg.includes('حدث') || msg.includes('عدل') || msg.includes('غير') || msg.includes('اخلي') || msg.includes('خلي') || msg.includes('خل') || msg.includes('update') || msg.includes('change')) {
+      return 'update_resume'
+    }
   }
 
   // Certificate intents
@@ -319,11 +410,6 @@ function detectIntent(message: string): string {
     return 'view_contracts'
   }
 
-  // Domestic labor intents
-  if (msg.includes('عمالة منزلية') || msg.includes('خادمة') || msg.includes('سائق')) {
-    return 'domestic_labor'
-  }
-
   // Regulations intents
   if (msg.includes('لائحة') || msg.includes('نظام') || msg.includes('قانون') || msg.includes('حق')) {
     return 'regulations'
@@ -340,13 +426,13 @@ function selectTools(intent: string, message: string): ToolName[] {
 
   switch (intent) {
     case 'create_resume':
-      tools.push('getResumeTool') // Always check existing first
-      // Only create if doesn't exist - will be handled by response logic
+      // For create, we let updateResumeTool handle it (auto-creates if doesn't exist)
+      tools.push('updateResumeTool')
       break
     
     case 'update_resume':
-      tools.push('getResumeTool') // Always get current data first
-      // Update will require more input from user
+      tools.push('getResumeTool') // Get current data first
+      tools.push('updateResumeTool') // Then update immediately
       break
     
     case 'add_course':
@@ -386,7 +472,7 @@ function selectTools(intent: string, message: string): ToolName[] {
       break
     
     case 'view_contracts':
-      tools.push('checkContractExpiryTool')
+      tools.push('getContractsTool')
       break
   }
 
@@ -402,21 +488,200 @@ function extractToolParameters(toolName: ToolName, message: string, userId: stri
   switch (toolName) {
     case 'createResumeTool':
     case 'updateResumeTool':
-      // These require interactive conversation - parameters will be minimal
+      // Extract parameters from message - ENHANCED FOR ALL FIELDS
+      const msg = message.toLowerCase()
+      
+      // Extract experience years
+      const yearsMatch = message.match(/(\d+)\s*(سنة|سنوات|عام|أعوام|سنه)/i)
+      if (yearsMatch) {
+        params.experience_years = parseInt(yearsMatch[1])
+        console.log('✅ Extracted experience_years:', params.experience_years)
+      }
+      
+      // Extract job title - SUPER ENHANCED
+      if (msg.includes('مسمى') || msg.includes('وظيفة') || msg.includes('منصب') || msg.includes('وظيف') || msg.includes('job title') || msg.includes('position')) {
+        // Pattern 1: "المسمى الوظيفي: X" or "وظيفة: X"
+        let titleMatch = message.match(/(?:مسمى|وظيفة|منصب|وظيفي|job title|position)[:\s]+([\s\S]+?)(?:\n|$)/i)
+        
+        // Pattern 2: "خل/اخلي المسمى الوظيفي X"
+        if (!titleMatch) {
+          titleMatch = message.match(/(?:خل|خلي|اخلي|غير|عدل|حدث|make|change|update)\s+(?:المسمى\s+الوظيفي|الوظيفة|المنصب|وظيفتي|my\s+job\s+title|my\s+position)\s+([\s\S]+?)(?:\n|$)/i)
+        }
+        
+        // Pattern 3: "وظيفتي X" or "اشتغل X"
+        if (!titleMatch) {
+          titleMatch = message.match(/(?:وظيفتي|اشتغل|اعمل|I\s+am\s+a|I\s+work\s+as)\s+([\s\S]+?)(?:\n|$)/i)
+        }
+        
+        if (titleMatch) {
+          params.job_title = titleMatch[1].trim()
+          console.log('✅ Extracted job_title:', params.job_title)
+        }
+      }
+      
+      // Extract education - SUPER ENHANCED
+      if (msg.includes('مؤهل') || msg.includes('شهادة') || msg.includes('تعليم') || msg.includes('طالب') || msg.includes('دراس') || msg.includes('خريج') || msg.includes('education') || msg.includes('degree') || msg.includes('graduate')) {
+        // Pattern 1: "مؤهل: X" or "تعليم: X"
+        let eduMatch = message.match(/(?:مؤهل|شهادة|تعليم|تعليمي|دراستي|education|degree)[:\s]+([\s\S]+?)(?:\n|$)/i)
+        
+        // Pattern 2: "طالب X" or "خريج X"
+        if (!eduMatch) {
+          eduMatch = message.match(/(?:طالب|خريج|graduate|student)\s+([\s\S]+?)(?:\s+مهتم|\s+في|\s+interested|\n|$)/i)
+        }
+        
+        // Pattern 3: "خل/اخلي المؤهل X"
+        if (!eduMatch) {
+          eduMatch = message.match(/(?:خل|خلي|اخلي|غير|make|change)\s+(?:المؤهل|التعليم|الشهادة|my\s+education)\s+([\s\S]+?)(?:\n|$)/i)
+        }
+        
+        if (eduMatch) {
+          params.education = eduMatch[1].trim()
+          console.log('✅ Extracted education:', params.education)
+        }
+      }
+      
+      // Extract summary - SUPER ENHANCED
+      if (msg.includes('ملخص') || msg.includes('نبذة') || msg.includes('مخلص') || msg.includes('نبذه') || msg.includes('summary') || msg.includes('bio') || msg.includes('about')) {
+        // Pattern 1: After "ملخص سيرتي:" or "summary:"
+        let summaryMatch = message.match(/(?:ملخص|نبذة|مخلص|نبذه|summary|bio|about)[:\s]+([\s\S]+?)(?:\n|$)/i)
+        
+        // Pattern 2: After "اني" or "انا" or "I am"
+        if (!summaryMatch && (msg.includes('اني') || msg.includes('انا') || msg.includes('i am') || msg.includes("i'm"))) {
+          summaryMatch = message.match(/(?:اني|انا|I\s+am|I'm)\s+([\s\S]+?)(?:\n|$)/i)
+        }
+        
+        // Pattern 3: "خل/اخلي الملخص X"
+        if (!summaryMatch) {
+          summaryMatch = message.match(/(?:خل|خلي|اخلي|make|change)\s+(?:الملخص|النبذة|my\s+summary|my\s+bio)\s+([\s\S]+?)(?:\n|$)/i)
+        }
+        
+        if (summaryMatch) {
+          params.summary = summaryMatch[1].trim()
+          console.log('✅ Extracted summary:', params.summary)
+        }
+      }
+      
+      // Extract skills - SUPER ENHANCED
+      if (msg.includes('مهار') || msg.includes('قدر') || msg.includes('skill')) {
+        // Pattern 1: "مهارات: X, Y, Z" or "skills: X, Y, Z"
+        let skillsMatch = message.match(/(?:مهارات|مهاراتي|قدراتي|skills|my\s+skills)[:\s]+([\s\S]+?)(?:\n|$)/i)
+        
+        // Pattern 2: "خل/اخلي مهاراتي X"
+        if (!skillsMatch) {
+          skillsMatch = message.match(/(?:خل|خلي|اخلي|غير|add|change)\s+(?:مهاراتي|المهارات|my\s+skills)\s+([\s\S]+?)(?:\n|$)/i)
+        }
+        
+        if (skillsMatch) {
+          // Split by common separators (Arabic comma, English comma, dash, newline, "and", "و")
+          const skillsText = skillsMatch[1].trim()
+          params.skills = skillsText.split(/[،,\-\n]|and|و/).map(s => s.trim()).filter(s => s.length > 0)
+          console.log('✅ Extracted skills:', params.skills)
+        }
+      }
       break
 
     case 'createCertificateTool':
-      // Determine certificate type
-      if (message.includes('راتب')) params.type = 'salary_definition'
-      else if (message.includes('خبرة') || message.includes('خدمة')) params.type = 'service_certificate'
-      else if (message.includes('ترخيص')) params.type = 'labor_license'
-      else params.type = 'salary_definition' // default
+      // Determine certificate type with enhanced detection
+      const msgLower = message.toLowerCase()
+      if (msgLower.includes('راتب') || msgLower.includes('تعريف')) {
+        params.type = 'salary_definition'
+        console.log('✅ Extracted certificate type: salary_definition')
+      } else if (msgLower.includes('خبرة') || msgLower.includes('خدمة')) {
+        params.type = 'service_certificate'
+        console.log('✅ Extracted certificate type: service_certificate')
+      } else if (msgLower.includes('ترخيص') || msgLower.includes('عمل')) {
+        params.type = 'labor_license'
+        console.log('✅ Extracted certificate type: labor_license')
+      } else {
+        params.type = 'salary_definition' // default
+      }
       break
 
     case 'createTicketTool':
-      params.title = 'طلب من المساعد الذكي'
-      params.category = 'general'
+      // Extract ticket details intelligently
+      const ticketMsg = message.toLowerCase()
+      
+      // Extract title from message
+      const titleMatch = message.match(/(?:مشكلة|شكوى|طلب)[:\s]+([\s\S]+?)(?:\.|،|\n|$)/i)
+      params.title = titleMatch ? titleMatch[1].trim() : message.substring(0, 100)
+      
+      // Determine category
+      if (ticketMsg.includes('سيرة') || ticketMsg.includes('ملف')) {
+        params.category = 'resume_issue'
+      } else if (ticketMsg.includes('شهادة')) {
+        params.category = 'certificate_issue'
+      } else if (ticketMsg.includes('عقد')) {
+        params.category = 'contract_issue'
+      } else if (ticketMsg.includes('موعد')) {
+        params.category = 'appointment_issue'
+      } else if (ticketMsg.includes('تقني') || ticketMsg.includes('خطأ')) {
+        params.category = 'technical'
+      } else {
+        params.category = 'general'
+      }
+      
       params.description = message
+      console.log('✅ Extracted ticket - Title:', params.title, 'Category:', params.category)
+      break
+
+    case 'scheduleAppointmentTool':
+      // Extract appointment details
+      const apptMsg = message.toLowerCase()
+      
+      // Extract office location
+      const locationMatch = message.match(/(?:في|مكتب|فرع)[:\s]+([\s\S]+?)(?:\s+يوم|\s+تاريخ|،|\n|$)/i)
+      if (locationMatch) {
+        params.office_location = locationMatch[1].trim()
+        console.log('✅ Extracted office_location:', params.office_location)
+      } else {
+        params.office_location = 'الفرع الرئيسي' // default
+      }
+      
+      // Extract date - look for date patterns
+      const dateMatch = message.match(/(\d{4}[-\/]\d{1,2}[-\/]\d{1,2})/i) ||
+                       message.match(/(\d{1,2}[-\/]\d{1,2}[-\/]\d{4})/i)
+      if (dateMatch) {
+        params.date = dateMatch[1].replace(/\//g, '-')
+        console.log('✅ Extracted date:', params.date)
+      } else {
+        // Default to tomorrow
+        const tomorrow = new Date()
+        tomorrow.setDate(tomorrow.getDate() + 1)
+        params.date = tomorrow.toISOString().split('T')[0]
+      }
+      
+      // Extract time
+      const timeMatch = message.match(/(\d{1,2}:\d{2})/i) ||
+                       message.match(/الساعة\s+(\d{1,2})/i)
+      if (timeMatch) {
+        params.time = timeMatch[1].includes(':') ? timeMatch[1] : `${timeMatch[1]}:00`
+        console.log('✅ Extracted time:', params.time)
+      } else {
+        params.time = '10:00 AM' // default
+      }
+      break
+
+    case 'renewContractTool':
+    case 'updateContractTool':
+      // Extract contract details
+      const contractMsg = message.toLowerCase()
+      
+      // Extract duration for renewal
+      if (contractMsg.includes('سنة') || contractMsg.includes('شهر')) {
+        const durationMatch = message.match(/(\d+)\s*(سنة|سنوات|شهر|أشهر)/i)
+        if (durationMatch) {
+          params.duration = parseInt(durationMatch[1])
+          params.duration_unit = durationMatch[2].includes('سنة') ? 'years' : 'months'
+          console.log('✅ Extracted duration:', params.duration, params.duration_unit)
+        }
+      }
+      
+      // Extract salary if mentioned
+      const salaryMatch = message.match(/(\d+(?:,\d+)?)\s*(?:ريال|ر\.س|SAR)/i)
+      if (salaryMatch) {
+        params.salary = parseFloat(salaryMatch[1].replace(',', ''))
+        console.log('✅ Extracted salary:', params.salary)
+      }
       break
 
     // Most tools just need user_id which is already added
