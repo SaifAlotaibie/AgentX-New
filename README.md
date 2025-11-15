@@ -390,17 +390,17 @@ Agent Proactive Suggestion:
 
 ```mermaid
 graph TB
-    User[👤 User] --> Frontend[Next.js Frontend]
+    User["👤 User"] --> Frontend["Next.js Frontend"]
     
-    Frontend --> API[API Routes]
+    Frontend --> API["API Routes"]
     
-    API --> Agent[LangChain Agent<br/>GPT-4]
+    API --> Agent["LangChain Agent + GPT-4"]
     
-    Agent --> Tools[20+ Tools<br/>Resume | Certificates<br/>Contracts | Tickets]
+    Agent --> Tools["20+ Tools:<br/>Resume, Certificates,<br/>Contracts, Tickets"]
     
-    Tools --> Services[Business Services]
+    Tools --> Services["Business Services"]
     
-    Services --> Database[(Supabase<br/>PostgreSQL)]
+    Services --> Database[("Supabase<br/>PostgreSQL")]
     
     Agent -.->|Memory| Database
     
