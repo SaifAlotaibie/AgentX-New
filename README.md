@@ -386,6 +386,34 @@ Agent Proactive Suggestion:
 
 ### Complete System Architecture
 
+#### Simplified Version (For Presentations)
+
+```mermaid
+graph TB
+    User[👤 User] --> Frontend[Next.js Frontend]
+    
+    Frontend --> API[API Routes]
+    
+    API --> Agent[LangChain Agent<br/>GPT-4]
+    
+    Agent --> Tools[20+ Tools<br/>Resume | Certificates<br/>Contracts | Tickets]
+    
+    Tools --> Services[Business Services]
+    
+    Services --> Database[(Supabase<br/>PostgreSQL)]
+    
+    Agent -.->|Memory| Database
+    
+    style Agent fill:#4CAF50,stroke:#2E7D32,stroke-width:3px
+    style Tools fill:#2196F3,stroke:#1565C0,stroke-width:2px
+    style Database fill:#9C27B0,stroke:#6A1B9A,stroke-width:2px
+```
+
+#### Detailed Version (Technical Documentation)
+
+<details>
+<summary>Click to expand detailed architecture</summary>
+
 ```mermaid
 graph TB
     subgraph "Client Layer"
@@ -478,6 +506,8 @@ graph TB
     style LLM fill:#FF9800,stroke:#E65100,stroke-width:2px
     style Memory fill:#00BCD4,stroke:#0097A7,stroke-width:2px
 ```
+
+</details>
 
 ### LangChain Agent Workflow
 
