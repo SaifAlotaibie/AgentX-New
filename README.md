@@ -37,6 +37,75 @@ AgentX is **not a simple chatbot** — it's a **true AI Agent** built for the Sa
 
 ---
 
+## 🛠️ التقنيات المستخدمة (Tech Stack)
+
+<table>
+<tr>
+<td width="33%" valign="top">
+
+### 🎨 Frontend
+- **Next.js** 15.5.6
+- **React** 19.2.0
+- **TypeScript** 5.9.3
+- **Tailwind CSS** 4.0
+- **Lucide Icons** 0.400
+
+</td>
+<td width="33%" valign="top">
+
+### ⚙️ Backend
+- **Next.js API Routes**
+- **Node.js** 18+
+- **TypeScript** 5.9.3
+- **OpenAI SDK** 4.20
+
+</td>
+<td width="33%" valign="top">
+
+### 🤖 AI/ML
+- **LangChain** Framework
+- **OpenAI GPT-4** Turbo
+- **Whisper** STT
+- **OpenAI TTS**
+- **Custom Agent** Executor
+
+</td>
+</tr>
+<tr>
+<td width="33%" valign="top">
+
+### 💾 Database
+- **Supabase** (PostgreSQL)
+- **Real-time** subscriptions
+- **13 Tables**
+- **Row Level Security**
+
+</td>
+<td width="33%" valign="top">
+
+### ☁️ Cloud & Hosting
+- **Vercel** Deployment
+- **Edge Runtime**
+- **Global CDN**
+- **Auto-scaling**
+
+</td>
+<td width="33%" valign="top">
+
+### 🔧 Development
+- **Git** + GitHub
+- **npm** Package Manager
+- **ESLint** Code Quality
+- **TypeScript** Compiler
+
+</td>
+</tr>
+</table>
+
+**📚 للتفاصيل الكاملة:** راجع [`TECH-STACK.md`](./TECH-STACK.md)
+
+---
+
 ## 🤖 How the AI Agent Works
 
 ### Agent Architecture
