@@ -521,7 +521,7 @@ flowchart TD
 
 ```mermaid
 graph LR
-    Input[User Input:<br/>"ابي احدث سيرتي"] --> Agent[LangChain Agent]
+    Input["User Input: Update Resume"] --> Agent[LangChain Agent]
     
     subgraph "Agent Brain - GPT-4"
         Agent --> Step1[1. Analyze Intent]
@@ -534,12 +534,12 @@ graph LR
     Step2 -->|updateResumeTool| DB2[(Update data)]
     
     DB1 --> Result1[experience_years: 5]
-    DB2 --> Result2[experience_years: 10 ✓]
+    DB2 --> Result2["experience_years: 10 ✓"]
     
     Result1 --> Step4
     Result2 --> Step4
     
-    Step4 --> Output[Response:<br/>"تم التحديث ✅"]
+    Step4 --> Output["Response: Updated Successfully"]
     
     style Agent fill:#4CAF50,stroke:#2E7D32,stroke-width:3px
     style Step2 fill:#2196F3,stroke:#1565C0,stroke-width:2px
