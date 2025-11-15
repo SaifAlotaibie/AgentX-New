@@ -382,6 +382,289 @@ Agent Proactive Suggestion:
 
 ---
 
+## 📊 System Architecture & Data Flow
+
+### Complete System Architecture
+
+```mermaid
+graph TB
+    subgraph "Client Layer"
+        User[👤 User Browser]
+        UI[React UI Components]
+    end
+    
+    subgraph "Frontend - Next.js"
+        Pages[Pages Layer]
+        Components[Components Layer]
+    end
+    
+    subgraph "API Layer"
+        ChatAPI["/api/chat"]
+        ResumeAPI["/api/qiwa/resume"]
+        ContractsAPI["/api/qiwa/contracts"]
+        ProactiveAPI["/api/proactive/events"]
+    end
+    
+    subgraph "AI Agent Core - LangChain"
+        LangChainExecutor[LangChain AgentExecutor]
+        LLM[ChatOpenAI GPT-4]
+        PromptTemplate[Prompt Template]
+        Memory[BufferMemory]
+    end
+    
+    subgraph "Tools System"
+        ResumeTool[Resume Tools x4]
+        CertTool[Certificate Tools x2]
+        ContractTool[Contract Tools x4]
+        TicketTool[Ticket Tools x3]
+        ApptTool[Appointment Tools x3]
+        ProactiveTool[Proactive Tools x3]
+    end
+    
+    subgraph "Services Layer"
+        ResumeService[Resume Service]
+        ContractService[Contract Service]
+        CertService[Certificate Service]
+    end
+    
+    subgraph "Data Access Layer"
+        DB_Layer[DB Access Functions]
+        Supabase_Client[Supabase Client]
+    end
+    
+    subgraph "Database - Supabase PostgreSQL"
+        UserProfile[(user_profile)]
+        Resumes[(resumes)]
+        Contracts[(employment_contracts)]
+        Conversations[(conversations)]
+        Behavior[(user_behavior)]
+        Events[(proactive_events)]
+        Actions[(agent_actions_log)]
+    end
+    
+    User --> UI
+    UI --> Pages
+    Pages --> ChatAPI
+    
+    ChatAPI --> LangChainExecutor
+    LangChainExecutor --> PromptTemplate
+    PromptTemplate --> LLM
+    LLM --> Memory
+    LangChainExecutor --> ResumeTool
+    LangChainExecutor --> CertTool
+    LangChainExecutor --> ContractTool
+    LangChainExecutor --> TicketTool
+    LangChainExecutor --> ApptTool
+    
+    ResumeTool --> ResumeService
+    ContractTool --> ContractService
+    CertTool --> CertService
+    
+    ResumeService --> DB_Layer
+    ContractService --> DB_Layer
+    CertService --> DB_Layer
+    
+    DB_Layer --> Supabase_Client
+    Supabase_Client --> UserProfile
+    Supabase_Client --> Resumes
+    Supabase_Client --> Contracts
+    
+    LLM --> Conversations
+    Memory --> Conversations
+    Memory --> Behavior
+    Memory --> Actions
+    
+    style LangChainExecutor fill:#4CAF50,stroke:#2E7D32,stroke-width:3px
+    style LLM fill:#FF9800,stroke:#E65100,stroke-width:2px
+    style Memory fill:#00BCD4,stroke:#0097A7,stroke-width:2px
+```
+
+### LangChain Agent Workflow
+
+```mermaid
+flowchart TD
+    Start([User Message]) --> Init[Initialize LangChain<br/>AgentExecutor]
+    
+    Init --> LoadMemory[Load from BufferMemory<br/>Last 20 conversations]
+    
+    LoadMemory --> BuildPrompt[Build Prompt Template:<br/>- System prompt<br/>- Chat history<br/>- User message<br/>- Agent scratchpad]
+    
+    BuildPrompt --> SendToLLM[Send to ChatOpenAI<br/>GPT-4]
+    
+    SendToLLM --> LLMDecision{GPT-4 Decision}
+    
+    LLMDecision -->|Call Tool| FunctionCall[Function Call:<br/>Select tool from 20+ tools]
+    LLMDecision -->|No Tool Needed| DirectResponse[Generate<br/>Direct Response]
+    
+    FunctionCall --> ExecuteTool[Execute DynamicStructuredTool]
+    ExecuteTool --> DBOperation[(Database Operation<br/>via Supabase)]
+    DBOperation --> ToolResult[Tool Result]
+    
+    ToolResult --> UpdateScratchpad[Add to agent_scratchpad]
+    UpdateScratchpad --> BuildPrompt
+    
+    DirectResponse --> SaveMemory[Save to BufferMemory<br/>& Database]
+    
+    SaveMemory --> ConvDB[(conversations)]
+    SaveMemory --> BehaviorDB[(user_behavior)]
+    SaveMemory --> ActionsDB[(agent_actions_log)]
+    
+    SaveMemory --> Response([Return Response<br/>to User])
+    
+    style SendToLLM fill:#FF9800,stroke:#E65100,stroke-width:3px
+    style ExecuteTool fill:#4CAF50,stroke:#2E7D32,stroke-width:2px
+    style DBOperation fill:#9C27B0,stroke:#6A1B9A,stroke-width:2px
+    style SaveMemory fill:#00BCD4,stroke:#0097A7,stroke-width:2px
+```
+
+### Agent Decision Making Process
+
+```mermaid
+graph LR
+    Input[User Input:<br/>"ابي احدث سيرتي"] --> Agent[LangChain Agent]
+    
+    subgraph "Agent Brain - GPT-4"
+        Agent --> Step1[1. Analyze Intent]
+        Step1 --> Step2[2. Select Tools]
+        Step2 --> Step3[3. Execute Tools]
+        Step3 --> Step4[4. Generate Response]
+    end
+    
+    Step2 -->|getResumeTool| DB1[(Get current data)]
+    Step2 -->|updateResumeTool| DB2[(Update data)]
+    
+    DB1 --> Result1[experience_years: 5]
+    DB2 --> Result2[experience_years: 10 ✓]
+    
+    Result1 --> Step4
+    Result2 --> Step4
+    
+    Step4 --> Output[Response:<br/>"تم التحديث ✅"]
+    
+    style Agent fill:#4CAF50,stroke:#2E7D32,stroke-width:3px
+    style Step2 fill:#2196F3,stroke:#1565C0,stroke-width:2px
+    style DB1 fill:#9C27B0,stroke:#6A1B9A,stroke-width:2px
+    style DB2 fill:#9C27B0,stroke:#6A1B9A,stroke-width:2px
+```
+
+### Proactive Intelligence System
+
+```mermaid
+flowchart TB
+    subgraph "Monitoring (Every 5 minutes)"
+        Monitor[Proactive Engine]
+    end
+    
+    Monitor --> Check1[Check Contracts<br/>end_date < 30 days]
+    Monitor --> Check2[Check Tickets<br/>status='open' > 2 days]
+    Monitor --> Check3[Check Resumes<br/>incomplete fields]
+    Monitor --> Check4[Check Appointments<br/>date < 3 days]
+    
+    Check1 --> DB[(Database<br/>Queries)]
+    Check2 --> DB
+    Check3 --> DB
+    Check4 --> DB
+    
+    DB --> Detect{Issue Detected?}
+    
+    Detect -->|Yes| CreateEvent[Create Proactive Event]
+    Detect -->|No| Continue[Continue Monitoring]
+    
+    CreateEvent --> EventsTable[(proactive_events<br/>acted=false)]
+    
+    EventsTable --> UserOpensApp[User Opens App]
+    UserOpensApp --> ShowBanner[Show Notification Banner]
+    UserOpensApp --> AgentGreeting[Agent Custom Greeting]
+    
+    ShowBanner --> UserSees["User sees:<br/>'عقدك ينتهي قريباً'"]
+    AgentGreeting --> ProactiveMsg["Agent says:<br/>'لاحظت أن عقدك...'"]
+    
+    style Monitor fill:#2196F3,stroke:#1565C0,stroke-width:3px
+    style CreateEvent fill:#FF9800,stroke:#E65100,stroke-width:2px
+    style EventsTable fill:#9C27B0,stroke:#6A1B9A,stroke-width:2px
+    style ShowBanner fill:#4CAF50,stroke:#2E7D32,stroke-width:2px
+```
+
+### Database Schema & Relationships
+
+```mermaid
+erDiagram
+    USER_PROFILE ||--o{ RESUMES : "manages"
+    USER_PROFILE ||--o{ EMPLOYMENT_CONTRACTS : "has"
+    USER_PROFILE ||--o{ CERTIFICATES : "generates"
+    USER_PROFILE ||--o{ TICKETS : "creates"
+    USER_PROFILE ||--o{ LABOR_APPOINTMENTS : "books"
+    USER_PROFILE ||--o{ CONVERSATIONS : "participates"
+    USER_PROFILE ||--|| USER_BEHAVIOR : "tracked"
+    USER_PROFILE ||--o{ PROACTIVE_EVENTS : "receives"
+    USER_PROFILE ||--o{ AGENT_FEEDBACK : "provides"
+    RESUMES ||--o{ RESUME_COURSES : "includes"
+    
+    USER_PROFILE {
+        uuid user_id PK
+        text full_name
+        text phone
+        text email
+    }
+    
+    RESUMES {
+        uuid id PK
+        uuid user_id FK
+        text job_title
+        text_array skills
+        int experience_years
+        text education
+        text summary
+    }
+    
+    EMPLOYMENT_CONTRACTS {
+        uuid id PK
+        uuid user_id FK
+        text employer_name
+        timestamp end_date
+        text status
+    }
+    
+    PROACTIVE_EVENTS {
+        uuid id PK
+        uuid user_id FK
+        text event_type
+        boolean acted
+        jsonb metadata
+    }
+    
+    CONVERSATIONS {
+        uuid id PK
+        uuid user_id FK
+        text role
+        text content
+        timestamp created_at
+    }
+    
+    USER_BEHAVIOR {
+        uuid user_id PK
+        text last_message
+        text predicted_need
+        text intent
+    }
+    
+    AGENT_ACTIONS_LOG {
+        uuid id PK
+        text user_id
+        text action_type
+        jsonb input_json
+        jsonb output_json
+        boolean success
+    }
+```
+
+**📚 For detailed architecture diagrams, see:**
+- [`DATA-FLOW-ARCHITECTURE.md`](./DATA-FLOW-ARCHITECTURE.md) - Complete data flow (15+ diagrams)
+- [`LANGCHAIN-WORKFLOW.md`](./LANGCHAIN-WORKFLOW.md) - LangChain implementation details
+- [`TECH-STACK.md`](./TECH-STACK.md) - Complete technology stack
+
+---
+
 ## 🚀 Quick Start
 
 ### Prerequisites
