@@ -31,8 +31,6 @@
   },
   "homepage": "https://github.com/SaifAlotaibie/AgentX#readme",
   "dependencies": {
-    "@langchain/core": "^1.0.4",
-    "@langchain/openai": "^1.1.0",
     "@microsoft/fetch-event-source": "^2.0.1",
     "@supabase/supabase-js": "^2.47.14",
     "@tailwindcss/postcss": "^4.1.17",
