@@ -2,13 +2,9 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { getUserId } from '@/lib/supabase'
-
-interface Message {
-  role: 'user' | 'assistant'
-  content: string
-  tools_used?: string[]
-  timestamp?: string
-}
+import ChatAssistant from '@/components/ChatAssistant'
+import { useChat } from '@ai-sdk/react'
+import { DefaultChatTransport } from 'ai'
 
 interface ThinkingStage {
   stage: 'thinking' | 'analyzing' | 'executing' | 'finalizing'
@@ -18,126 +14,139 @@ interface ThinkingStage {
 }
 
 export default function ChatbotPage() {
-  const [messages, setMessages] = useState<Message[]>([])
-  const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [showWelcome, setShowWelcome] = useState(true)
-  const [currentThinkingStage, setCurrentThinkingStage] = useState<ThinkingStage | null>(null)
-  const [welcomeMessage, setWelcomeMessage] = useState<string>('')
-  const [loadingWelcome, setLoadingWelcome] = useState(true)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [userId, setUserId] = useState<string>('')
 
-  // Fetch personalized welcome message on mount
+  // Get User ID on mount - MUST happen before useChat
   useEffect(() => {
-    const fetchWelcomeMessage = async () => {
-      try {
-        const userId = getUserId()
-        const res = await fetch(`/api/welcome?user_id=${userId}`)
-        if (res.ok) {
-          const data = await res.json()
-          setWelcomeMessage(data.message)
-        }
-      } catch (error) {
-        console.error('Error fetching welcome message:', error)
-        // Fallback welcome message
-        setWelcomeMessage('مرحباً بك في المساعد الذكي! 👋\n\nكيف يمكنني مساعدتك اليوم؟')
-      } finally {
-        setLoadingWelcome(false)
-      }
-    }
-    fetchWelcomeMessage()
+    const id = getUserId()
+    setUserId(id)
   }, [])
 
+  // Don't render chat until we have userId
+  if (!userId) {
+    return (
+      <div className="qiwa-page-content !py-0 !pl-0 flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: 'var(--qiwa-primary)' }}></div>
+          <p style={{ color: 'var(--qiwa-text-secondary)' }}>جارٍ التحميل...</p>
+        </div>
+      </div>
+    )
+  }
+
+  return <ChatbotPageContent userId={userId} />
+}
+
+function ChatbotPageContent({ userId }: { userId: string }) {
+  const [showWelcome, setShowWelcome] = useState(true)
+  const [currentThinkingStage, setCurrentThinkingStage] = useState<ThinkingStage | null>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [input, setInput] = useState('')
+
+  // Initialize useChat hook with transport
+  const { messages, sendMessage, status, setMessages } = useChat({
+    transport: new DefaultChatTransport({
+      api: '/api/chat',
+      body: {
+        user_id: userId
+      }
+    }),
+    onFinish: () => {
+      setCurrentThinkingStage(null)
+    },
+    onError: (error) => {
+      console.error('Chat error:', error)
+      setCurrentThinkingStage(null)
+    }
+  })
+
+  const isLoading = status === 'submitted' || status === 'streaming'
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setInput(e.target.value)
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!input.trim()) return
+
+    sendMessage({
+      text: input
+    })
+    setInput('')
+  }
+
+  // Auto-scroll to bottom
   useEffect(() => {
     scrollToBottom()
-  }, [messages])
+  }, [messages, currentThinkingStage])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
-  const handleSend = async (customMessage?: string) => {
-    const messageToSend = customMessage || input.trim()
-    if (!messageToSend || loading) return
+  // Handle thinking animation
+  useEffect(() => {
+    if (isLoading && messages.length > 0 && messages[messages.length - 1].role === 'user') {
+      // User sent message, waiting for response -> Show thinking
+      const thinkingStages: ThinkingStage[] = [
+        { stage: 'thinking', message: 'يفكر في طلبك', icon: '🤔', color: '#0A74A6' },
+        { stage: 'analyzing', message: 'يحلل البيانات', icon: '🔍', color: '#0D9488' },
+        { stage: 'executing', message: 'ينفذ العملية', icon: '⚡', color: '#7C3AED' },
+        { stage: 'finalizing', message: 'يجهز الإجابة', icon: '✅', color: '#059669' }
+      ]
 
-    setInput('')
-    setShowWelcome(false)
+      let stageIndex = 0
+      setCurrentThinkingStage(thinkingStages[0])
 
-    setMessages(prev => [...prev, {
-      role: 'user',
-      content: messageToSend,
-      timestamp: new Date().toISOString()
-    }])
+      const interval = setInterval(() => {
+        stageIndex++
+        if (stageIndex < thinkingStages.length) {
+          setCurrentThinkingStage(thinkingStages[stageIndex])
+        }
+      }, 800)
 
-    setLoading(true)
-
-    const thinkingStages: ThinkingStage[] = [
-      { stage: 'thinking', message: 'يفكر في طلبك', icon: '🤔', color: '#0A74A6' },
-      { stage: 'analyzing', message: 'يحلل البيانات', icon: '🔍', color: '#0D9488' },
-      { stage: 'executing', message: 'ينفذ العملية', icon: '⚡', color: '#7C3AED' },
-      { stage: 'finalizing', message: 'يجهز الإجابة', icon: '✅', color: '#059669' }
-    ]
-
-    let stageIndex = 0
-    setCurrentThinkingStage(thinkingStages[0])
-
-    const thinkingInterval = setInterval(() => {
-      stageIndex++
-      if (stageIndex < thinkingStages.length) {
-        setCurrentThinkingStage(thinkingStages[stageIndex])
-      }
-    }, 800)
-
-    try {
-      const userId = getUserId()
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: messageToSend,
-          user_id: userId,
-          history: messages.slice(-10)
-        })
-      })
-
-      clearInterval(thinkingInterval)
+      return () => clearInterval(interval)
+    } else if (!isLoading) {
       setCurrentThinkingStage(null)
-
-      const result = await response.json()
-
-      if (result.success) {
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: result.response,
-          tools_used: result.tools_used,
-          timestamp: new Date().toISOString()
-        }])
-      } else {
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: result.response || 'عذراً، حدث خطأ. الرجاء المحاولة مرة أخرى.',
-          timestamp: new Date().toISOString()
-        }])
-      }
-    } catch (err) {
-      clearInterval(thinkingInterval)
-      setCurrentThinkingStage(null)
-      console.error('Chat error:', err)
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: 'عذراً، حدث خطأ في الاتصال. تأكد من اتصالك بالإنترنت.',
-        timestamp: new Date().toISOString()
-      }])
-    } finally {
-      setLoading(false)
     }
+  }, [isLoading, messages])
+
+  // Custom submit handler to hide welcome screen
+  const onFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!input.trim()) return
+    setShowWelcome(false)
+    handleSubmit(e)
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
+  // Handle quick questions
+  const handleQuickQuestion = (question: string) => {
+    setShowWelcome(false)
+    sendMessage({
+      text: question
+    })
+  }
+
+  // Helper to extract content from UIMessage
+  const getMessageContent = (msg: any): string => {
+    if (typeof msg.content === 'string') {
+      return msg.content
+    } else if (msg.parts && Array.isArray(msg.parts)) {
+      const textPart = msg.parts.find((p: any) => p.type === 'text')
+      return textPart?.text || ''
     }
+    return ''
+  }
+
+  // Simple markdown parser for bold text
+  const parseMarkdown = (text: string) => {
+    return text.split(/(\*\*.*?\*\*)/).map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={i}>{part.slice(2, -2)}</strong>
+      }
+      return part
+    })
   }
 
   const quickQuestions = [
@@ -147,7 +156,12 @@ export default function ChatbotPage() {
   ]
 
   return (
-    <div className="qiwa-page-content" style={{ padding: 0 }}>
+    <div className="qiwa-page-content !py-0 !pl-0">
+      {/* Fixed Help Button - Top Right */}
+      <div className="fixed top-6 left-6 z-[200]">
+        <ChatAssistant />
+      </div>
+
       <div style={{ maxWidth: '100%', width: '100%', margin: '0 auto' }}>
         {showWelcome && messages.length === 0 ? (
           /* Welcome Screen */
@@ -163,18 +177,18 @@ export default function ChatbotPage() {
 
             {/* Header */}
             <div className="w-full max-w-4xl flex items-center justify-center mb-16 relative z-10">
-              <img 
-                src="/qiwalogofor-afrad.png" 
-                alt="قوى" 
+              <img
+                src="/qiwalogofor-afrad.png"
+                alt="قوى"
                 className="h-20 w-auto object-contain"
               />
             </div>
 
-            {/* Rotating 3D AI Sphere - Original Design */}
-            <div className="relative mb-12 z-10">
-              <div className="relative w-56 h-56">
+            {/* Rotating 3D AI Sphere - Smaller */}
+            <div className="relative mb-8 z-10">
+              <div className="relative w-40 h-40">
                 {/* Main Sphere */}
-                <div 
+                <div
                   className="absolute inset-0 rounded-full"
                   style={{
                     background: 'linear-gradient(135deg, rgba(10, 116, 166, 0.15) 0%, rgba(0, 152, 212, 0.25) 50%, rgba(13, 148, 136, 0.15) 100%)',
@@ -184,14 +198,14 @@ export default function ChatbotPage() {
                   }}
                 >
                   {/* Inner Glow */}
-                  <div 
+                  <div
                     className="absolute inset-4 rounded-full"
                     style={{
                       background: 'radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.4), transparent 50%)',
                       animation: 'pulse 3s ease-in-out infinite'
                     }}
                   />
-                  
+
                   {/* Rotating Particles Inside */}
                   {[...Array(12)].map((_, i) => (
                     <div
@@ -211,11 +225,11 @@ export default function ChatbotPage() {
 
                   {/* Center AI Icon - SVG Style */}
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <svg 
-                      width="120" 
-                      height="120" 
-                      viewBox="0 0 120 120" 
-                      fill="none" 
+                    <svg
+                      width="120"
+                      height="120"
+                      viewBox="0 0 120 120"
+                      fill="none"
                       style={{
                         filter: 'drop-shadow(0 0 30px rgba(10, 116, 166, 0.6))',
                         animation: 'float 3s ease-in-out infinite'
@@ -225,25 +239,25 @@ export default function ChatbotPage() {
                       <circle cx="60" cy="60" r="35" stroke="url(#aiGradient)" strokeWidth="3" fill="none" />
                       <circle cx="60" cy="60" r="25" stroke="url(#aiGradient)" strokeWidth="2" fill="none" opacity="0.6" />
                       <circle cx="60" cy="60" r="15" fill="url(#aiGradient)" opacity="0.3" />
-                      
+
                       {/* Neural Network Lines */}
                       <line x1="60" y1="25" x2="60" y2="40" stroke="url(#aiGradient)" strokeWidth="2" />
                       <line x1="60" y1="80" x2="60" y2="95" stroke="url(#aiGradient)" strokeWidth="2" />
                       <line x1="25" y1="60" x2="40" y2="60" stroke="url(#aiGradient)" strokeWidth="2" />
                       <line x1="80" y1="60" x2="95" y2="60" stroke="url(#aiGradient)" strokeWidth="2" />
-                      
+
                       {/* Corner Nodes */}
                       <circle cx="45" cy="45" r="4" fill="#0A74A6" />
                       <circle cx="75" cy="45" r="4" fill="#0098D4" />
                       <circle cx="45" cy="75" r="4" fill="#0D9488" />
                       <circle cx="75" cy="75" r="4" fill="#0A74A6" />
-                      
+
                       {/* Center Pulse */}
                       <circle cx="60" cy="60" r="8" fill="#0098D4">
                         <animate attributeName="r" values="6;10;6" dur="2s" repeatCount="indefinite" />
                         <animate attributeName="opacity" values="1;0.5;1" dur="2s" repeatCount="indefinite" />
                       </circle>
-                      
+
                       <defs>
                         <linearGradient id="aiGradient" x1="0%" y1="0%" x2="100%" y2="100%">
                           <stop offset="0%" stopColor="#0A74A6" />
@@ -288,34 +302,27 @@ export default function ChatbotPage() {
               </div>
             </div>
 
-            {/* Welcome Text - Dynamic based on user behavior */}
-            <div className="text-center mb-10 max-w-2xl relative z-10 px-4">
-              {loadingWelcome ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-qiwa-blue"></div>
-                </div>
-              ) : (
-                <>
-                  <h2 className="text-5xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 via-teal-500 to-blue-600 animate-gradient" style={{ backgroundSize: '200% auto' }}>
-                    قوى - المساعد الذكي
-                  </h2>
-                  <div className="text-lg leading-relaxed whitespace-pre-line" style={{ color: 'var(--qiwa-text-secondary)' }}>
-                    {welcomeMessage}
-                  </div>
-                </>
-              )}
+            {/* Welcome Text - Static */}
+            <div className="text-center mb-6 max-w-2xl relative z-10 px-6">
+              <h2 className="text-3xl md:text-4xl font-bold mb-3 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 via-teal-500 to-blue-600 animate-gradient px-2" style={{ backgroundSize: '200% auto', paddingTop: '0.5rem', paddingBottom: '0.5rem', lineHeight: '1.4' }}>
+                قوى - المساعد الذكي
+              </h2>
+              <div className="text-base leading-relaxed" style={{ color: 'var(--qiwa-text-secondary)' }}>
+                <p className="mb-2">مرحباً بك في المساعد الذكي! 👋</p>
+                <p>كيف يمكنني مساعدتك اليوم؟</p>
+              </div>
             </div>
 
             {/* Quick Questions - Compact */}
-            <div className="w-full max-w-3xl mb-10 relative z-10">
-              <p className="text-sm mb-3 text-center" style={{ color: 'var(--qiwa-text-secondary)' }}>
+            <div className="w-full max-w-3xl mb-6 relative z-10">
+              <p className="text-sm mb-2 text-center" style={{ color: 'var(--qiwa-text-secondary)' }}>
                 أسئلة شائعة:
               </p>
               <div className="flex flex-wrap justify-center gap-3">
                 {quickQuestions.map((question, idx) => (
                   <button
                     key={idx}
-                    onClick={() => handleSend(question)}
+                    onClick={() => handleQuickQuestion(question)}
                     className="px-5 py-2.5 rounded-full text-sm font-medium transition-all duration-300 hover:scale-105"
                     style={{
                       backgroundColor: 'rgba(255, 255, 255, 0.9)',
@@ -346,14 +353,13 @@ export default function ChatbotPage() {
               <p className="text-base font-semibold mb-4" style={{ color: 'var(--qiwa-text-primary)' }}>
                 ما سؤالك؟
               </p>
-              <div className="relative group">
+              <form onSubmit={onFormSubmit} className="relative group">
                 <input
                   type="text"
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyPress={handleKeyPress}
+                  onChange={handleInputChange}
                   placeholder="اكتب سؤالك هنا"
-                  disabled={loading}
+                  disabled={isLoading}
                   className="w-full px-7 py-5 rounded-2xl text-lg focus:outline-none transition-all duration-300"
                   style={{
                     backgroundColor: 'rgba(255, 255, 255, 0.95)',
@@ -375,8 +381,8 @@ export default function ChatbotPage() {
                 />
                 {input.trim() && (
                   <button
-                    onClick={() => handleSend()}
-                    disabled={loading}
+                    type="submit"
+                    disabled={isLoading}
                     className="absolute left-3 top-1/2 transform -translate-y-1/2 w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95"
                     style={{
                       background: 'linear-gradient(135deg, var(--qiwa-blue) 0%, var(--qiwa-primary) 100%)',
@@ -388,8 +394,8 @@ export default function ChatbotPage() {
                     </svg>
                   </button>
                 )}
-              </div>
-              
+              </form>
+
               <div className="mt-5 p-4 rounded-xl" style={{ backgroundColor: 'rgba(234, 88, 12, 0.06)', border: '1px solid rgba(234, 88, 12, 0.15)' }}>
                 <p className="text-sm leading-relaxed" style={{ color: 'var(--qiwa-text-secondary)' }}>
                   💡 قد لا تكون الإجابات دقيقة ولا يمكن الاعتماد عليها، يُنصح بالرجوع إلى مختصين للتأكد منها.
@@ -401,11 +407,11 @@ export default function ChatbotPage() {
           /* Chat Screen - Full Width like ChatGPT */
           <div className="flex flex-col h-screen">
             {/* Fixed Header */}
-            <div className="flex-shrink-0 border-b-2 px-6 py-4" style={{ borderColor: 'var(--qiwa-border-light)', backgroundColor: 'white' }}>
+            <div className="flex-shrink-0 border-b-2 px-6 py-4 lg:mr-0" style={{ borderColor: 'var(--qiwa-border-light)', backgroundColor: 'white' }}>
               <div className="max-w-6xl mx-auto flex items-center justify-between">
-                <img 
-                  src="/qiwalogofor-afrad.png" 
-                  alt="قوى" 
+                <img
+                  src="/qiwalogofor-afrad.png"
+                  alt="قوى"
                   className="h-12 w-auto object-contain"
                 />
                 <button
@@ -423,7 +429,7 @@ export default function ChatbotPage() {
 
             {/* Messages Area - Scrollable */}
             <div className="flex-1 overflow-y-auto">
-              <div className="max-w-6xl mx-auto px-6 py-8">
+              <div className="max-w-6xl mx-auto px-6 py-8 lg:mr-8">
                 <div className="space-y-8">
                   {messages.map((msg, idx) => (
                     <div
@@ -433,7 +439,7 @@ export default function ChatbotPage() {
                       {/* Avatar */}
                       <div className="flex-shrink-0">
                         {msg.role === 'assistant' ? (
-                          <div 
+                          <div
                             className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg"
                             style={{
                               background: 'linear-gradient(135deg, var(--qiwa-blue), var(--qiwa-primary))'
@@ -445,14 +451,14 @@ export default function ChatbotPage() {
                             </svg>
                           </div>
                         ) : (
-                          <div 
+                          <div
                             className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg"
                             style={{
                               background: 'linear-gradient(135deg, #6B7280, #4B5563)'
                             }}
                           >
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
-                              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+                              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z" />
                             </svg>
                           </div>
                         )}
@@ -470,21 +476,21 @@ export default function ChatbotPage() {
                             أنت
                           </div>
                         )}
-                        <div 
+                        <div
                           className="text-base leading-relaxed whitespace-pre-wrap"
                           style={{ color: 'var(--qiwa-text-primary)' }}
                         >
-                          {msg.content}
+                          {parseMarkdown(getMessageContent(msg))}
                         </div>
                       </div>
                     </div>
                   ))}
 
-                  {/* Thinking Animation */}
-                  {currentThinkingStage && (
+                  {/* Thinking Animation - Only show when waiting for first token */}
+                  {currentThinkingStage && isLoading && messages.length > 0 && messages[messages.length - 1].role === 'user' && (
                     <div className="flex gap-6 animate-slideIn">
                       <div className="flex-shrink-0">
-                        <div 
+                        <div
                           className="w-10 h-10 rounded-full flex items-center justify-center shadow-lg animate-pulse"
                           style={{
                             background: 'linear-gradient(135deg, var(--qiwa-blue), var(--qiwa-primary))'
@@ -496,23 +502,27 @@ export default function ChatbotPage() {
                           </svg>
                         </div>
                       </div>
-                      
+
                       <div className="flex-1">
                         <div className="font-bold mb-2" style={{ color: 'var(--qiwa-primary)' }}>
                           مساعد قوى
                         </div>
-                        <div 
+                        <div
                           className="inline-flex items-center gap-3 px-5 py-3 rounded-2xl"
-                          style={{ 
+                          style={{
                             backgroundColor: `${currentThinkingStage.color}10`,
                             border: `2px solid ${currentThinkingStage.color}`
                           }}
                         >
-                          <div 
+                          <div
                             className="w-8 h-8 rounded-full flex items-center justify-center animate-spin"
                             style={{
-                              border: `2px solid ${currentThinkingStage.color}`,
-                              borderTopColor: 'transparent'
+                              borderWidth: '2px',
+                              borderStyle: 'solid',
+                              borderTopColor: 'transparent',
+                              borderRightColor: currentThinkingStage.color,
+                              borderBottomColor: currentThinkingStage.color,
+                              borderLeftColor: currentThinkingStage.color
                             }}
                           />
                           <div>
@@ -538,44 +548,51 @@ export default function ChatbotPage() {
             {/* Fixed Input Area */}
             <div className="flex-shrink-0 border-t px-6 py-6" style={{ borderColor: 'var(--qiwa-border-light)', backgroundColor: 'white' }}>
               <div className="max-w-6xl mx-auto relative">
-                <textarea
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="اكتب سؤالك هنا..."
-                  disabled={loading}
-                  rows={1}
-                  className="w-full px-6 py-4 rounded-2xl border-2 text-base focus:outline-none transition-all resize-none"
-                  style={{
-                    borderColor: 'var(--qiwa-border-light)',
-                    color: 'var(--qiwa-text-primary)',
-                    minHeight: '60px',
-                    maxHeight: '200px'
-                  }}
-                  onFocus={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--qiwa-primary)'
-                    e.currentTarget.style.boxShadow = '0 0 0 4px rgba(10, 116, 166, 0.1)'
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--qiwa-border-light)'
-                    e.currentTarget.style.boxShadow = 'none'
-                  }}
-                />
-                {input.trim() && (
-                  <button
-                    onClick={() => handleSend()}
-                    disabled={loading}
-                    className="absolute left-4 bottom-4 w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-110"
-                    style={{
-                      background: 'linear-gradient(135deg, var(--qiwa-blue) 0%, var(--qiwa-primary) 100%)',
-                      boxShadow: '0 4px 15px rgba(10, 116, 166, 0.4)'
+                <form onSubmit={onFormSubmit}>
+                  <textarea
+                    value={input}
+                    onChange={handleInputChange}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        onFormSubmit(e as any)
+                      }
                     }}
-                  >
-                    <svg className="w-5 h-5 text-white transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                    </svg>
-                  </button>
-                )}
+                    placeholder="اكتب سؤالك هنا..."
+                    disabled={isLoading}
+                    rows={1}
+                    className="w-full px-6 py-4 rounded-2xl border-2 text-base focus:outline-none transition-all resize-none"
+                    style={{
+                      borderColor: 'var(--qiwa-border-light)',
+                      color: 'var(--qiwa-text-primary)',
+                      minHeight: '60px',
+                      maxHeight: '200px'
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--qiwa-primary)'
+                      e.currentTarget.style.boxShadow = '0 0 0 4px rgba(10, 116, 166, 0.1)'
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--qiwa-border-light)'
+                      e.currentTarget.style.boxShadow = 'none'
+                    }}
+                  />
+                  {input.trim() && (
+                    <button
+                      type="submit"
+                      disabled={isLoading}
+                      className="absolute left-4 bottom-4 w-10 h-10 rounded-full flex items-center justify-center transition-all hover:scale-110"
+                      style={{
+                        background: 'linear-gradient(135deg, var(--qiwa-blue) 0%, var(--qiwa-primary) 100%)',
+                        boxShadow: '0 4px 15px rgba(10, 116, 166, 0.4)'
+                      }}
+                    >
+                      <svg className="w-5 h-5 text-white transform rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                      </svg>
+                    </button>
+                  )}
+                </form>
               </div>
             </div>
           </div>
