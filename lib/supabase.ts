@@ -41,10 +41,10 @@ export function getUserId(): string {
   if (typeof window === 'undefined') {
     return ''
   }
-  
+
   // Try to get existing userId from localStorage
   let userId = localStorage.getItem('agentx_user_id')
-  
+
   // Validate the userId
   if (!userId || !isValidUUID(userId)) {
     // Invalid or missing UUID - generate a new valid one
@@ -52,16 +52,28 @@ export function getUserId(): string {
       console.warn(`⚠️ Invalid user_id detected in localStorage: "${userId}"`)
       console.log('🔧 Generating new valid UUID...')
     }
-    
+
     // Generate new valid UUID v4
-    userId = crypto.randomUUID()
-    
+    try {
+      if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        userId = crypto.randomUUID()
+      } else {
+        throw new Error('crypto.randomUUID not available')
+      }
+    } catch (e) {
+      // Fallback for environments without crypto.randomUUID (e.g. insecure context)
+      userId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    }
+
     // Save to localStorage
     localStorage.setItem('agentx_user_id', userId)
-    
+
     console.log('✅ New user_id created:', userId)
   }
-  
+
   return userId
 }
 
@@ -78,28 +90,28 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
       .select('*')
       .eq('user_id', userId)
       .single()
-    
+
     if (error) {
       // PGRST116 = No rows found (user doesn't exist yet)
       if (error.code === 'PGRST116') {
         console.log('✅ User profile not found (new user):', userId.substring(0, 8))
         return null
       }
-      
+
       // 42P01 = Table doesn't exist
       if (error.code === '42P01') {
         console.error('❌ DATABASE ERROR: user_profile table does not exist!')
         console.error('📋 Please run database-schema.sql in Supabase SQL Editor')
         return null
       }
-      
+
       // Other errors
       console.error('❌ Supabase error:', error.code, '-', error.message)
       if (error.hint) console.error('💡 Hint:', error.hint)
       if (error.details) console.error('📝 Details:', error.details)
       return null
     }
-    
+
     return data
   } catch (error: any) {
     console.error('❌ Unexpected error fetching user profile:', error?.message || String(error))
@@ -117,7 +129,7 @@ export async function createUserProfile(profile: UserProfile): Promise<boolean> 
         full_name: profile.full_name,
         phone: profile.phone || null
       })
-    
+
     if (error) {
       // 42P01 = Table doesn't exist
       if (error.code === '42P01') {
@@ -125,19 +137,19 @@ export async function createUserProfile(profile: UserProfile): Promise<boolean> 
         console.error('📋 Please run database-schema.sql in Supabase SQL Editor')
         return false
       }
-      
+
       // 23505 = Unique violation (user already exists)
       if (error.code === '23505') {
         console.log('⚠️ User already exists, skipping insert')
         return true
       }
-      
+
       console.error('❌ Supabase error creating user:', error.code, '-', error.message)
       if (error.hint) console.error('💡 Hint:', error.hint)
       if (error.details) console.error('📝 Details:', error.details)
       return false
     }
-    
+
     console.log('✅ User profile created successfully')
     return true
   } catch (error: any) {

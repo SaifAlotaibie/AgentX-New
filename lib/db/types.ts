@@ -42,6 +42,7 @@ export interface Certificate {
   certificate_type: 'salary_definition' | 'service_certificate' | 'labor_license'
   content: string
   issue_date: string
+  status?: string
   created_at?: string
 }
 
@@ -61,8 +62,8 @@ export interface ResumeCourse {
   id: string
   resume_id: string
   course_name: string
-  institution: string
-  completion_date: string
+  provider: string
+  date_completed: string
   certificate_url?: string
   created_at?: string
 }
@@ -95,6 +96,8 @@ export interface Ticket {
   ticket_number?: number
   user_id: string
   title: string
+  description?: string
+  category?: string
   status: 'open' | 'closed'
   created_at?: string
   updated_at?: string
@@ -166,8 +169,8 @@ export interface UpdateResumeInput {
 export interface AddCourseInput {
   resume_id: string
   course_name: string
-  institution: string
-  completion_date: string
+  provider: string
+  date_completed: string
   certificate_url?: string
 }
 
