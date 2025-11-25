@@ -1,4 +1,5 @@
-import { OpenAI } from 'openai'
+import { generateText, streamText } from 'ai'
+import { agentModel } from './groq-client'
 import { ALL_TOOLS, ToolName } from '../tools'
 import AGENT_SYSTEM_PROMPT from './system_prompt'
 import { logAgentAction, updateUserBehavior } from '../tools/logger'
@@ -10,16 +11,12 @@ interface AgentMessage {
 }
 
 interface AgentResponse {
-  response: string
+  response: string | any // Allow stream object
   tools_used?: string[]
   reasoning?: string
   proactive_suggestions?: any[]
+  isStream?: boolean
 }
-
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
 
 /**
  * AI Agent Executor with Real OpenAI Integration
@@ -38,7 +35,7 @@ export async function executeAgent(
     console.log('🔮 Running Proactive Engine...')
     const proactiveResult = await executeProactiveEngineForUser(userId)
     const pendingEvents = await getProactiveEventsForUser(userId, 3)
-    
+
     console.log(`🎯 Proactive: ${pendingEvents.length} pending events, ${proactiveResult.predictions.size} predictions`)
 
     // Step 1: Detect intent and select appropriate tools
@@ -62,9 +59,9 @@ export async function executeAgent(
 
         // Extract parameters from user message based on tool
         const params = extractToolParameters(toolName, userMessage, userId)
-        
+
         console.log(`⚙️ Executing ${toolName} with params:`, params)
-        
+
         const result = await tool.execute(params)
         toolResults.push({ tool: toolName, result })
         toolsUsed.push(toolName)
@@ -79,71 +76,60 @@ export async function executeAgent(
       }
     }
 
-    // Step 3: Use OpenAI to generate intelligent response with proactive context
-    const response = await generateIntelligentResponse(
+    // Step 3: Use OpenAI/Groq to generate intelligent response with proactive context
+    // We now return the stream directly
+    const stream = await streamIntelligentResponse(
       userMessage,
       intent,
       toolResults,
       conversationHistory,
       userId,
       pendingEvents,
-      proactiveResult
+      proactiveResult,
+      toolsUsed
     )
 
-    // Update user behavior
-    await updateUserBehavior(userId, {
-      last_message: userMessage,
-      intent: intent,
-      predicted_need: proactiveResult.predictions.get(userId)?.predicted_need || null
-    })
-
-    // Log agent action
-    await logAgentAction(userId, 'chat_response', {
-      message: userMessage,
-      intent,
-      tools_used: toolsUsed,
-      proactive_events: pendingEvents.length
-    }, {
-      response,
-      tools_executed: toolResults.length
-    })
-
     return {
-      response,
+      response: stream,
+      isStream: true,
       tools_used: toolsUsed,
-      reasoning: `Intent: ${intent}، Tools: ${toolsUsed.join('، ')}`,
       proactive_suggestions: pendingEvents.map(e => ({
         type: e.event_type,
         message: e.suggested_action,
         id: e.id
       }))
     }
+
   } catch (error: any) {
     console.error('❌ Error in executeAgent:', error)
+    // Fallback to rule-based response if error occurs
+    const fallbackResponse = generateFallbackResponse(userMessage, 'general_inquiry', [])
     return {
-      response: 'عذراً، حدث خطأ أثناء معالجة طلبك. الرجاء المحاولة مرة أخرى.',
+      response: fallbackResponse,
+      isStream: false,
       tools_used: [],
     }
   }
 }
 
 /**
- * Generate intelligent response using OpenAI
+ * Generate intelligent response using AI SDK Streaming
  */
-async function generateIntelligentResponse(
+async function streamIntelligentResponse(
   userMessage: string,
   intent: string,
   toolResults: any[],
   history: AgentMessage[],
   userId: string,
   pendingEvents: any[] = [],
-  proactiveResult: any = null
-): Promise<string> {
+  proactiveResult: any = null,
+  toolsUsed: string[] = []
+): Promise<any> {
   try {
     // Build context from tool results - HIDE TOOL NAMES from user
     let toolContext = '\n\n# ⚠️ CRITICAL INSTRUCTION: NEVER mention tool names to the user!\n'
     toolContext += '# Present results naturally like a real government employee.\n'
-    
+
     // Add proactive context if available
     if (pendingEvents.length > 0) {
       toolContext += '\n\n## 🔔 أحداث استباقية مهمة (عالج بذكاء):\n'
@@ -166,7 +152,7 @@ async function generateIntelligentResponse(
         toolContext += '\n⚠️ استخدم هذا لتقديم اقتراحات استباقية!\n'
       }
     }
-    
+
     if (toolResults.length > 0) {
       toolContext += '\n## نتائج العمليات (استخدم داخلياً فقط - لا تذكر أسماء الأدوات):\n'
       for (const { tool, result } of toolResults) {
@@ -183,7 +169,7 @@ async function generateIntelligentResponse(
           toolContext += `الخطأ: ${result.error || 'خطأ غير معروف'}\n`
         }
       }
-      
+
       toolContext += '\n⚠️ تذكير: اعرض هذه النتائج بطريقة طبيعية بدون ذكر:\n'
       toolContext += '- أسماء الأدوات (getResumeTool، updateResumeTool، إلخ)\n'
       toolContext += '- العمليات التقنية (استعلامات قاعدة البيانات، API calls)\n'
@@ -199,13 +185,27 @@ async function generateIntelligentResponse(
       }
     ]
 
+    // Helper to extract text content from UIMessage format
+    const extractMessageContent = (msg: any): string => {
+      if (typeof msg.content === 'string') {
+        return msg.content
+      } else if (msg.parts && Array.isArray(msg.parts)) {
+        const textPart = msg.parts.find((p: any) => p.type === 'text')
+        return textPart?.text || ''
+      }
+      return ''
+    }
+
     // Add conversation history (last 5 messages)
     const recentHistory = history.slice(-5)
     for (const msg of recentHistory) {
-      messages.push({
-        role: msg.role === 'assistant' ? 'assistant' : 'user',
-        content: msg.content
-      })
+      const content = extractMessageContent(msg)
+      if (content) {
+        messages.push({
+          role: msg.role === 'assistant' ? 'assistant' : 'user',
+          content
+        })
+      }
     }
 
     // Add current user message
@@ -214,26 +214,40 @@ async function generateIntelligentResponse(
       content: userMessage
     })
 
-    console.log('🧠 Calling OpenAI with', messages.length, 'messages')
+    console.log('🧠 Calling Groq (openai/gpt-oss-120b) with', messages.length, 'messages')
 
-    // Call OpenAI
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini', // Using gpt-4o-mini for cost efficiency
-      messages: messages,
-      temperature: 0.7,
-      max_tokens: 500,
+    // Call Groq via AI SDK with Streaming
+    const result = streamText({
+      model: agentModel, // gpt-oss-120b
+      messages: messages as any,
+      temperature: 0.5,
+      async onFinish({ text }) {
+        console.log('✅ Stream finished, saving to DB...')
+
+        // Update user behavior
+        await updateUserBehavior(userId, {
+          last_message: userMessage,
+          intent: intent,
+          predicted_need: proactiveResult?.predictions?.get(userId)?.predicted_need || null
+        })
+
+        // Log agent action
+        await logAgentAction(userId, 'chat_response', {
+          message: userMessage,
+          intent,
+          tools_used: toolsUsed,
+          proactive_events: pendingEvents.length
+        }, {
+          response: text,
+          tools_executed: toolResults.length
+        })
+      }
     })
 
-    const response = completion.choices[0]?.message?.content || 'عذراً، لم أتمكن من فهم طلبك.'
-    
-    console.log('✅ OpenAI response generated')
-    
-    return response
+    return result
   } catch (error: any) {
-    console.error('❌ Error calling OpenAI:', error)
-    
-    // Fallback to rule-based response if OpenAI fails
-    return generateFallbackResponse(userMessage, intent, toolResults)
+    console.error('❌ Error calling Groq:', error)
+    throw error
   }
 }
 
@@ -272,7 +286,7 @@ function generateFallbackResponse(
             if (result.data.courses && result.data.courses.length > 0) {
               response += `\nالدورات التدريبية (${result.data.courses.length}):\n`
               result.data.courses.slice(0, 3).forEach((course: any) => {
-                response += `  • ${course.course_name} - ${course.institution}\n`
+                response += `  • ${course.course_name} - ${course.provider}\n`
               })
             }
             response += '\n'
@@ -352,28 +366,28 @@ function detectIntent(message: string): string {
     }
     return 'view_resume'
   }
-  
+
   // Job title updates - ENHANCED
   if (msg.includes('مسمى') || msg.includes('وظيف') || msg.includes('منصب') || msg.includes('job title') || msg.includes('position')) {
     if (msg.includes('حدث') || msg.includes('عدل') || msg.includes('غير') || msg.includes('اخلي') || msg.includes('خلي') || msg.includes('خل') || msg.includes('سوي') || msg.includes('update') || msg.includes('change') || msg.includes('make')) {
       return 'update_resume'
     }
   }
-  
+
   // Education updates
   if (msg.includes('مؤهل') || msg.includes('تعليم') || msg.includes('دراس') || msg.includes('education') || msg.includes('degree')) {
     if (msg.includes('حدث') || msg.includes('عدل') || msg.includes('غير') || msg.includes('اخلي') || msg.includes('خلي') || msg.includes('خل') || msg.includes('update') || msg.includes('change')) {
       return 'update_resume'
     }
   }
-  
+
   // Skills updates
   if (msg.includes('مهار') || msg.includes('قدر') || msg.includes('skill')) {
     if (msg.includes('حدث') || msg.includes('عدل') || msg.includes('غير') || msg.includes('اخلي') || msg.includes('خلي') || msg.includes('خل') || msg.includes('اضف') || msg.includes('ضيف') || msg.includes('update') || msg.includes('add')) {
       return 'update_resume'
     }
   }
-  
+
   // Summary updates
   if (msg.includes('ملخص') || msg.includes('نبذة') || msg.includes('مخلص') || msg.includes('summary') || msg.includes('bio')) {
     if (msg.includes('حدث') || msg.includes('عدل') || msg.includes('غير') || msg.includes('اخلي') || msg.includes('خلي') || msg.includes('خل') || msg.includes('update') || msg.includes('change')) {
@@ -429,48 +443,48 @@ function selectTools(intent: string, message: string): ToolName[] {
       // For create, we let updateResumeTool handle it (auto-creates if doesn't exist)
       tools.push('updateResumeTool')
       break
-    
+
     case 'update_resume':
       tools.push('getResumeTool') // Get current data first
       tools.push('updateResumeTool') // Then update immediately
       break
-    
+
     case 'add_course':
       tools.push('getResumeTool')
       // Add course requires resume ID and course details
       break
-    
+
     case 'view_resume':
       tools.push('getResumeTool')
       break
-    
+
     case 'salary_certificate':
     case 'service_certificate':
     case 'labor_license':
       // Certificate generation requires user confirmation first
       // tools.push('createCertificateTool')
       break
-    
+
     case 'view_certificates':
       tools.push('getCertificatesTool')
       break
-    
+
     case 'book_appointment':
       // Booking requires date/time/location - needs conversation
       break
-    
+
     case 'view_appointments':
       tools.push('getAppointmentsTool')
       break
-    
+
     case 'create_ticket':
       // Ticket creation needs details
       break
-    
+
     case 'check_ticket':
       tools.push('checkTicketStatusTool')
       break
-    
+
     case 'view_contracts':
       tools.push('getContractsTool')
       break
@@ -490,87 +504,87 @@ function extractToolParameters(toolName: ToolName, message: string, userId: stri
     case 'updateResumeTool':
       // Extract parameters from message - ENHANCED FOR ALL FIELDS
       const msg = message.toLowerCase()
-      
+
       // Extract experience years
       const yearsMatch = message.match(/(\d+)\s*(سنة|سنوات|عام|أعوام|سنه)/i)
       if (yearsMatch) {
         params.experience_years = parseInt(yearsMatch[1])
         console.log('✅ Extracted experience_years:', params.experience_years)
       }
-      
+
       // Extract job title - SUPER ENHANCED
       if (msg.includes('مسمى') || msg.includes('وظيفة') || msg.includes('منصب') || msg.includes('وظيف') || msg.includes('job title') || msg.includes('position')) {
         // Pattern 1: "المسمى الوظيفي: X" or "وظيفة: X"
         let titleMatch = message.match(/(?:مسمى|وظيفة|منصب|وظيفي|job title|position)[:\s]+([\s\S]+?)(?:\n|$)/i)
-        
+
         // Pattern 2: "خل/اخلي المسمى الوظيفي X"
         if (!titleMatch) {
           titleMatch = message.match(/(?:خل|خلي|اخلي|غير|عدل|حدث|make|change|update)\s+(?:المسمى\s+الوظيفي|الوظيفة|المنصب|وظيفتي|my\s+job\s+title|my\s+position)\s+([\s\S]+?)(?:\n|$)/i)
         }
-        
+
         // Pattern 3: "وظيفتي X" or "اشتغل X"
         if (!titleMatch) {
           titleMatch = message.match(/(?:وظيفتي|اشتغل|اعمل|I\s+am\s+a|I\s+work\s+as)\s+([\s\S]+?)(?:\n|$)/i)
         }
-        
+
         if (titleMatch) {
           params.job_title = titleMatch[1].trim()
           console.log('✅ Extracted job_title:', params.job_title)
         }
       }
-      
+
       // Extract education - SUPER ENHANCED
       if (msg.includes('مؤهل') || msg.includes('شهادة') || msg.includes('تعليم') || msg.includes('طالب') || msg.includes('دراس') || msg.includes('خريج') || msg.includes('education') || msg.includes('degree') || msg.includes('graduate')) {
         // Pattern 1: "مؤهل: X" or "تعليم: X"
         let eduMatch = message.match(/(?:مؤهل|شهادة|تعليم|تعليمي|دراستي|education|degree)[:\s]+([\s\S]+?)(?:\n|$)/i)
-        
+
         // Pattern 2: "طالب X" or "خريج X"
         if (!eduMatch) {
           eduMatch = message.match(/(?:طالب|خريج|graduate|student)\s+([\s\S]+?)(?:\s+مهتم|\s+في|\s+interested|\n|$)/i)
         }
-        
+
         // Pattern 3: "خل/اخلي المؤهل X"
         if (!eduMatch) {
           eduMatch = message.match(/(?:خل|خلي|اخلي|غير|make|change)\s+(?:المؤهل|التعليم|الشهادة|my\s+education)\s+([\s\S]+?)(?:\n|$)/i)
         }
-        
+
         if (eduMatch) {
           params.education = eduMatch[1].trim()
           console.log('✅ Extracted education:', params.education)
         }
       }
-      
+
       // Extract summary - SUPER ENHANCED
       if (msg.includes('ملخص') || msg.includes('نبذة') || msg.includes('مخلص') || msg.includes('نبذه') || msg.includes('summary') || msg.includes('bio') || msg.includes('about')) {
         // Pattern 1: After "ملخص سيرتي:" or "summary:"
         let summaryMatch = message.match(/(?:ملخص|نبذة|مخلص|نبذه|summary|bio|about)[:\s]+([\s\S]+?)(?:\n|$)/i)
-        
+
         // Pattern 2: After "اني" or "انا" or "I am"
         if (!summaryMatch && (msg.includes('اني') || msg.includes('انا') || msg.includes('i am') || msg.includes("i'm"))) {
           summaryMatch = message.match(/(?:اني|انا|I\s+am|I'm)\s+([\s\S]+?)(?:\n|$)/i)
         }
-        
+
         // Pattern 3: "خل/اخلي الملخص X"
         if (!summaryMatch) {
           summaryMatch = message.match(/(?:خل|خلي|اخلي|make|change)\s+(?:الملخص|النبذة|my\s+summary|my\s+bio)\s+([\s\S]+?)(?:\n|$)/i)
         }
-        
+
         if (summaryMatch) {
           params.summary = summaryMatch[1].trim()
           console.log('✅ Extracted summary:', params.summary)
         }
       }
-      
+
       // Extract skills - SUPER ENHANCED
       if (msg.includes('مهار') || msg.includes('قدر') || msg.includes('skill')) {
         // Pattern 1: "مهارات: X, Y, Z" or "skills: X, Y, Z"
         let skillsMatch = message.match(/(?:مهارات|مهاراتي|قدراتي|skills|my\s+skills)[:\s]+([\s\S]+?)(?:\n|$)/i)
-        
+
         // Pattern 2: "خل/اخلي مهاراتي X"
         if (!skillsMatch) {
           skillsMatch = message.match(/(?:خل|خلي|اخلي|غير|add|change)\s+(?:مهاراتي|المهارات|my\s+skills)\s+([\s\S]+?)(?:\n|$)/i)
         }
-        
+
         if (skillsMatch) {
           // Split by common separators (Arabic comma, English comma, dash, newline, "and", "و")
           const skillsText = skillsMatch[1].trim()
@@ -600,11 +614,11 @@ function extractToolParameters(toolName: ToolName, message: string, userId: stri
     case 'createTicketTool':
       // Extract ticket details intelligently
       const ticketMsg = message.toLowerCase()
-      
+
       // Extract title from message
       const titleMatch = message.match(/(?:مشكلة|شكوى|طلب)[:\s]+([\s\S]+?)(?:\.|،|\n|$)/i)
       params.title = titleMatch ? titleMatch[1].trim() : message.substring(0, 100)
-      
+
       // Determine category
       if (ticketMsg.includes('سيرة') || ticketMsg.includes('ملف')) {
         params.category = 'resume_issue'
@@ -619,7 +633,7 @@ function extractToolParameters(toolName: ToolName, message: string, userId: stri
       } else {
         params.category = 'general'
       }
-      
+
       params.description = message
       console.log('✅ Extracted ticket - Title:', params.title, 'Category:', params.category)
       break
@@ -627,7 +641,7 @@ function extractToolParameters(toolName: ToolName, message: string, userId: stri
     case 'scheduleAppointmentTool':
       // Extract appointment details
       const apptMsg = message.toLowerCase()
-      
+
       // Extract office location
       const locationMatch = message.match(/(?:في|مكتب|فرع)[:\s]+([\s\S]+?)(?:\s+يوم|\s+تاريخ|،|\n|$)/i)
       if (locationMatch) {
@@ -636,10 +650,10 @@ function extractToolParameters(toolName: ToolName, message: string, userId: stri
       } else {
         params.office_location = 'الفرع الرئيسي' // default
       }
-      
+
       // Extract date - look for date patterns
       const dateMatch = message.match(/(\d{4}[-\/]\d{1,2}[-\/]\d{1,2})/i) ||
-                       message.match(/(\d{1,2}[-\/]\d{1,2}[-\/]\d{4})/i)
+        message.match(/(\d{1,2}[-\/]\d{1,2}[-\/]\d{4})/i)
       if (dateMatch) {
         params.date = dateMatch[1].replace(/\//g, '-')
         console.log('✅ Extracted date:', params.date)
@@ -649,10 +663,10 @@ function extractToolParameters(toolName: ToolName, message: string, userId: stri
         tomorrow.setDate(tomorrow.getDate() + 1)
         params.date = tomorrow.toISOString().split('T')[0]
       }
-      
+
       // Extract time
       const timeMatch = message.match(/(\d{1,2}:\d{2})/i) ||
-                       message.match(/الساعة\s+(\d{1,2})/i)
+        message.match(/الساعة\s+(\d{1,2})/i)
       if (timeMatch) {
         params.time = timeMatch[1].includes(':') ? timeMatch[1] : `${timeMatch[1]}:00`
         console.log('✅ Extracted time:', params.time)
@@ -665,7 +679,7 @@ function extractToolParameters(toolName: ToolName, message: string, userId: stri
     case 'updateContractTool':
       // Extract contract details
       const contractMsg = message.toLowerCase()
-      
+
       // Extract duration for renewal
       if (contractMsg.includes('سنة') || contractMsg.includes('شهر')) {
         const durationMatch = message.match(/(\d+)\s*(سنة|سنوات|شهر|أشهر)/i)
@@ -675,7 +689,7 @@ function extractToolParameters(toolName: ToolName, message: string, userId: stri
           console.log('✅ Extracted duration:', params.duration, params.duration_unit)
         }
       }
-      
+
       // Extract salary if mentioned
       const salaryMatch = message.match(/(\d+(?:,\d+)?)\s*(?:ريال|ر\.س|SAR)/i)
       if (salaryMatch) {
