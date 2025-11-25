@@ -19,7 +19,7 @@ export const getCertificatesTool: Tool = {
       const { user_id, type } = params
 
       let certificates = await findByUser<Certificate>('certificates', user_id)
-      
+
       if (type) {
         certificates = certificates.filter((c: any) => c.certificate_type === type)
       }
@@ -138,6 +138,7 @@ export const createCertificateTool: Tool = {
         user_id,
         certificate_type: type,
         content: certificateContent,
+        status: 'valid',
         issue_date: new Date().toISOString(),
         created_at: new Date().toISOString()
       }
@@ -158,7 +159,7 @@ export const createCertificateTool: Tool = {
         service_certificate: 'شهادة خبرة',
         labor_license: 'ترخيص استشارات عمالية'
       }
-      
+
       await createTicketTool.execute({
         user_id,
         title: `إصدار ${typeNames[type]} عبر المساعد الذكي`,

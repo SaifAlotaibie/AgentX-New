@@ -35,6 +35,7 @@ export const createTicketTool: Tool = {
         user_id,
         title,
         category,
+        description: description || '',
         status: 'open',
         created_at: new Date().toISOString()
       }
@@ -79,7 +80,7 @@ export const closeTicketTool: Tool = {
       const { user_id, ticket_id } = params
 
       const ticket = await findById<Ticket>('tickets', ticket_id)
-      
+
       if (!ticket) {
         return {
           success: false,
@@ -143,7 +144,7 @@ export const checkTicketStatusTool: Tool = {
       if (ticket_id) {
         // Get specific ticket
         const ticket = await findById<Ticket>('tickets', ticket_id)
-        
+
         if (!ticket) {
           return {
             success: false,
@@ -170,7 +171,7 @@ export const checkTicketStatusTool: Tool = {
       } else {
         // Get all user tickets
         const tickets = await findByUser<Ticket>('tickets', user_id)
-        
+
         await updateUserBehavior(user_id, {
           last_seen_service: 'tickets',
         })

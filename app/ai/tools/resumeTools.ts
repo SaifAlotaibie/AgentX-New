@@ -21,7 +21,7 @@ export const getResumeTool: Tool = {
 
       // Fetch resume
       const resumes = await findByUser<Resume>('resumes', user_id)
-      
+
       if (!resumes || resumes.length === 0) {
         return {
           success: true,
@@ -198,7 +198,7 @@ export const updateResumeTool: Tool = {
       const existing = await findByUser<Resume>('resumes', user_id)
       if (!existing || existing.length === 0) {
         console.log('⚠️  Resume not found - Creating new one automatically')
-        
+
         // إنشاء سيرة ذاتية جديدة تلقائياً بناءً على المعلومات المقدمة
         const newResumeData = {
           user_id,
@@ -339,20 +339,20 @@ export const addCourseToResumeTool: Tool = {
   parameters: {
     user_id: 'معرف المستخدم (UUID)',
     course_name: 'اسم الدورة',
-    institution: 'الجهة المانحة',
+    provider: 'الجهة المانحة',
     date_completed: 'تاريخ الإكمال (YYYY-MM-DD)',
   },
   execute: async (params: {
     user_id: string
     course_name: string
-    institution: string
+    provider: string
     date_completed?: string
   }): Promise<ToolResult> => {
     try {
-      const { user_id, course_name, institution, date_completed } = params
+      const { user_id, course_name, provider, date_completed } = params
 
       // Validate required fields
-      if (!course_name || !institution) {
+      if (!course_name || !provider) {
         return {
           success: false,
           error: 'اسم الدورة والجهة المانحة مطلوبان'
@@ -374,7 +374,7 @@ export const addCourseToResumeTool: Tool = {
       const courseData = {
         resume_id: resumeId,
         course_name,
-        institution,
+        provider,
         date_completed: date_completed || new Date().toISOString().split('T')[0],
         created_at: new Date().toISOString()
       }
@@ -394,7 +394,7 @@ export const addCourseToResumeTool: Tool = {
         user_id,
         title: 'إضافة دورة تدريبية عبر المساعد الذكي',
         category: 'agent_action',
-        description: `تم إضافة دورة: ${course_name} من ${institution}`
+        description: `تم إضافة دورة: ${course_name} من ${provider}`
       })
 
       return {
