@@ -21,14 +21,14 @@ export default function ShareResumePage() {
     try {
       setLoading(true)
       const userId = getUserId()
-      
+
       const response = await fetch(`/api/qiwa/resume?user_id=${userId}`)
       const result = await response.json()
 
       if (result.success) {
         setResume(result.data?.resume || null)
         setCourses(result.data?.courses || [])
-        
+
         // Generate share link
         const baseUrl = window.location.origin
         setShareLink(`${baseUrl}/qiwa/resume/view/${userId}`)
@@ -54,7 +54,7 @@ export default function ShareResumePage() {
 
     // Generate PDF content
     const pdfContent = generatePDFContent(resume, courses)
-    
+
     // Create a simple text file for now (can be enhanced with PDF library later)
     const blob = new Blob([pdfContent], { type: 'text/plain;charset=utf-8' })
     const url = URL.createObjectURL(blob)
@@ -84,19 +84,6 @@ ${resume.summary || 'غير متوفر'}
 
 المهارات:
 ${resume.skills && resume.skills.length > 0 ? resume.skills.map(s => `• ${s}`).join('\n') : '• لا توجد مهارات مسجلة'}
-
-${courses.length > 0 ? `
-الدورات التدريبية:
-${courses.map(c => `
-• ${c.course_name}
-  الجهة المانحة: ${c.institution}
-  تاريخ الإنجاز: ${new Date(c.completion_date).toLocaleDateString('ar-SA')}
-`).join('\n')}
-` : ''}
-
-═══════════════════════════════════
-تم الإنشاء عبر منصة قوى - qiwa.sa
-وزارة الموارد البشرية والتنمية الاجتماعية
 ═══════════════════════════════════
     `.trim()
   }
@@ -160,7 +147,7 @@ ${courses.map(c => `
                   <span className="text-3xl">📥</span>
                   <h2 className="text-2xl font-bold" style={{ color: '#20183b' }}>تحميل السيرة الذاتية</h2>
                 </div>
-                
+
                 <p className="mb-6" style={{ color: '#4b515a' }}>
                   احصل على نسخة من سيرتك الذاتية بصيغة نصية للمراجعة أو الطباعة
                 </p>
@@ -179,7 +166,7 @@ ${courses.map(c => `
                   <span className="text-3xl">🔗</span>
                   <h2 className="text-2xl font-bold" style={{ color: '#20183b' }}>رابط المشاركة</h2>
                 </div>
-                
+
                 <p className="mb-6" style={{ color: '#4b515a' }}>
                   شارك هذا الرابط مع أصحاب العمل لعرض سيرتك الذاتية
                 </p>
@@ -194,11 +181,10 @@ ${courses.map(c => `
                   />
                   <button
                     onClick={handleCopyLink}
-                    className={`px-8 py-3 rounded-lg font-bold transition-all ${
-                      copySuccess
-                        ? 'bg-green-600 text-white'
-                        : 'bg-amber-600 text-white hover:bg-amber-700'
-                    }`}
+                    className={`px-8 py-3 rounded-lg font-bold transition-all ${copySuccess
+                      ? 'bg-green-600 text-white'
+                      : 'bg-amber-600 text-white hover:bg-amber-700'
+                      }`}
                   >
                     {copySuccess ? 'تم النسخ ✓' : 'نسخ الرابط'}
                   </button>
@@ -254,7 +240,7 @@ ${courses.map(c => `
                         {courses.slice(0, 3).map((course) => (
                           <div key={course.id} className="bg-white p-3 rounded-lg border">
                             <p className="font-bold" style={{ color: '#20183b' }}>{course.course_name}</p>
-                            <p className="text-sm text-gray-600">{course.institution}</p>
+                            <p className="text-sm text-gray-600">{course.provider}</p>
                           </div>
                         ))}
                         {courses.length > 3 && (

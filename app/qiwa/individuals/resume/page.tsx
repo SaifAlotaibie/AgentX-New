@@ -29,14 +29,14 @@ export default function ResumePage() {
       setLoading(true)
       setError(null)
       const userId = getUserId()
-      
+
       const response = await fetch(`/api/qiwa/resume?user_id=${userId}`)
       const result = await response.json()
 
       if (result.success) {
         setResume(result.data?.resume || null)
         setCourses(result.data?.courses || [])
-        
+
         if (result.data?.resume) {
           setFormData({
             job_title: result.data.resume.job_title || '',
@@ -60,20 +60,20 @@ export default function ResumePage() {
   const handleUpdate = async () => {
     try {
       const userId = getUserId()
-      
+
       console.log('📤 Sending resume data...')
       console.log('👤 User ID:', userId)
       console.log('📋 Form data:', formData)
-      
+
       // Validate form data
       if (!formData.job_title?.trim()) {
         alert('⚠️ الرجاء إدخال المسمى الوظيفي')
         return
       }
-      
+
       const payload = { user_id: userId, ...formData }
       console.log('📦 Full payload:', JSON.stringify(payload, null, 2))
-      
+
       const response = await fetch('/api/qiwa/resume', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -82,7 +82,7 @@ export default function ResumePage() {
 
       console.log('📨 Response status:', response.status)
       console.log('📨 Response ok:', response.ok)
-      
+
       const result = await response.json()
       console.log('📦 Response data:', result)
 
@@ -133,7 +133,7 @@ export default function ResumePage() {
                 backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(255,255,255,.1) 35px, rgba(255,255,255,.1) 70px)'
               }}></div>
             </div>
-            
+
             <div className="relative z-10">
               <div className="flex items-center gap-4 mb-3">
                 <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
@@ -353,8 +353,8 @@ export default function ResumePage() {
                         {courses.map((course) => (
                           <div key={course.id} className="bg-gradient-to-r from-gray-50 to-blue-50/50 border-2 border-gray-200 rounded-xl p-5 hover:border-blue-300 transition-colors">
                             <p className="font-bold text-gray-900 text-lg">{course.course_name}</p>
-                            <p className="text-sm text-gray-600 font-medium mt-1">{course.institution}</p>
-                            <p className="text-xs text-gray-500 mt-2 font-bold">📅 {new Date(course.completion_date).toLocaleDateString('ar-SA')}</p>
+                            <p className="text-sm text-gray-600 font-medium mt-1">{course.provider}</p>
+                            <p className="text-xs text-gray-500 mt-2 font-bold">📅 {new Date(course.date_completed).toLocaleDateString('ar-SA')}</p>
                           </div>
                         ))}
                       </div>
@@ -368,17 +368,17 @@ export default function ResumePage() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                   </div>
-                  
+
                   <h2 className="text-4xl font-black text-slate-900 mb-4">
                     لا توجد سيرة ذاتية
                   </h2>
-                  
+
                   <p className="text-xl text-slate-700 font-bold mb-10 max-w-xl mx-auto">
                     قم بإنشاء سيرتك الذاتية الآن
                   </p>
 
-                  <button 
-                    onClick={() => setEditing(true)} 
+                  <button
+                    onClick={() => setEditing(true)}
                     className="inline-flex items-center gap-3 px-14 py-6 bg-slate-800 text-white rounded-xl font-bold text-xl shadow-lg hover:bg-slate-900 transition-all border-2 border-slate-900"
                   >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

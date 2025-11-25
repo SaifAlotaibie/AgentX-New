@@ -32,19 +32,19 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { resume_id, course_name, institution, completion_date, certificate_url } = body
+    const { resume_id, course_name, provider, date_completed, certificate_url } = body
 
-    if (!resume_id || !course_name || !institution || !completion_date) {
+    if (!resume_id || !course_name || !provider || !date_completed) {
       return NextResponse.json<ApiResponse>({
         success: false,
-        error: 'resume_id, course_name, institution, and completion_date are required'
+        error: 'resume_id, course_name, provider, and date_completed are required'
       }, { status: 400 })
     }
 
     const result = await resumeService.addCourse(resume_id, {
       course_name,
-      institution,
-      completion_date,
+      provider,
+      date_completed,
       certificate_url
     })
 
@@ -95,5 +95,3 @@ export async function DELETE(request: NextRequest) {
     }, { status: 500 })
   }
 }
-
-

@@ -14,8 +14,8 @@ export default function CoursesPage() {
   const [resumeId, setResumeId] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     course_name: '',
-    institution: '',
-    completion_date: '',
+    provider: '',
+    date_completed: '',
     certificate_url: ''
   })
 
@@ -28,7 +28,7 @@ export default function CoursesPage() {
       setLoading(true)
       setError(null)
       const userId = getUserId()
-      
+
       const response = await fetch(`/api/qiwa/resume?user_id=${userId}`)
       const result = await response.json()
 
@@ -57,7 +57,7 @@ export default function CoursesPage() {
       return
     }
 
-    if (!formData.course_name || !formData.institution || !formData.completion_date) {
+    if (!formData.course_name || !formData.provider || !formData.date_completed) {
       alert('الرجاء تعبئة جميع الحقول المطلوبة')
       return
     }
@@ -74,7 +74,7 @@ export default function CoursesPage() {
       if (result.success) {
         alert('تمت إضافة الدورة بنجاح!')
         setShowAddForm(false)
-        setFormData({ course_name: '', institution: '', completion_date: '', certificate_url: '' })
+        setFormData({ course_name: '', provider: '', date_completed: '', certificate_url: '' })
         fetchResumeAndCourses()
       } else {
         alert(result.error || 'فشل في إضافة الدورة')
@@ -146,7 +146,7 @@ export default function CoursesPage() {
             <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold" style={{ color: '#20183b' }}>إضافة دورة جديدة</h2>
-                <button 
+                <button
                   onClick={() => setShowAddForm(true)}
                   className="px-6 py-3 bg-yellow-600 text-white rounded-xl font-bold hover:bg-yellow-700"
                 >
@@ -159,7 +159,7 @@ export default function CoursesPage() {
           {showAddForm && resumeId && (
             <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
               <h2 className="text-2xl font-bold mb-6" style={{ color: '#20183b' }}>إضافة دورة جديدة</h2>
-              
+
               <div className="space-y-6">
                 <div>
                   <label className="block font-bold mb-2" style={{ color: '#20183b' }}>اسم الدورة *</label>
@@ -176,8 +176,8 @@ export default function CoursesPage() {
                   <label className="block font-bold mb-2" style={{ color: '#20183b' }}>الجهة المانحة *</label>
                   <input
                     type="text"
-                    value={formData.institution}
-                    onChange={(e) => setFormData({ ...formData, institution: e.target.value })}
+                    value={formData.provider}
+                    onChange={(e) => setFormData({ ...formData, provider: e.target.value })}
                     className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:border-yellow-500"
                     placeholder="مثال: جامعة الملك سعود"
                   />
@@ -187,8 +187,8 @@ export default function CoursesPage() {
                   <label className="block font-bold mb-2" style={{ color: '#20183b' }}>تاريخ الإكمال *</label>
                   <input
                     type="date"
-                    value={formData.completion_date}
-                    onChange={(e) => setFormData({ ...formData, completion_date: e.target.value })}
+                    value={formData.date_completed}
+                    onChange={(e) => setFormData({ ...formData, date_completed: e.target.value })}
                     className="w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:border-yellow-500"
                   />
                 </div>
@@ -205,13 +205,13 @@ export default function CoursesPage() {
                 </div>
 
                 <div className="flex gap-4">
-                  <button 
+                  <button
                     onClick={handleAddCourse}
                     className="flex-1 px-6 py-3 bg-yellow-600 text-white rounded-xl font-bold hover:bg-yellow-700"
                   >
                     إضافة
                   </button>
-                  <button 
+                  <button
                     onClick={() => setShowAddForm(false)}
                     className="px-6 py-3 border-2 rounded-xl font-bold hover:bg-gray-50"
                   >
@@ -246,9 +246,9 @@ export default function CoursesPage() {
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
                         <h4 className="font-bold text-lg mb-1" style={{ color: '#20183b' }}>{course.course_name}</h4>
-                        <p className="text-sm" style={{ color: '#4b515a' }}>{course.institution}</p>
+                        <p className="text-sm" style={{ color: '#4b515a' }}>{course.provider}</p>
                         <p className="text-xs text-gray-500 mt-1">
-                          {new Date(course.completion_date).toLocaleDateString('ar-SA')}
+                          {new Date(course.date_completed).toLocaleDateString('ar-SA')}
                         </p>
                       </div>
                       <button
@@ -259,9 +259,9 @@ export default function CoursesPage() {
                       </button>
                     </div>
                     {course.certificate_url && (
-                      <a 
-                        href={course.certificate_url} 
-                        target="_blank" 
+                      <a
+                        href={course.certificate_url}
+                        target="_blank"
                         rel="noopener noreferrer"
                         className="text-sm text-blue-600 hover:underline"
                       >
