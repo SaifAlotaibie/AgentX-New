@@ -40,8 +40,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet" />
         <script src="https://cdn.tailwindcss.com"></script>
-        <script dangerouslySetInnerHTML={{__html: `tailwind.config={theme:{extend:{colors:{primary:'#006341',secondary:'#00A878',accent:'#F7B32B',dark:'#1a1a1a'}}}}`}} />
-        
+        <script dangerouslySetInnerHTML={{ __html: `tailwind.config={theme:{extend:{colors:{primary:'#006341',secondary:'#00A878',accent:'#F7B32B',dark:'#1a1a1a'}}}}` }} />
+
         {/* SEO: Structured Data (JSON-LD) */}
         <script
           type="application/ld+json"
@@ -50,7 +50,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
       </head>
-      <body style={{fontFamily: 'Cairo, sans-serif', margin: 0, padding: 0}}>{children}</body>
+      <body suppressHydrationWarning style={{ fontFamily: 'Cairo, sans-serif', margin: 0, padding: 0 }}>{children}</body>
     </html>
   )
 }

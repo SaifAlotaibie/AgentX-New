@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import Link from 'next/link'
 
+import ChatAssistant from './ChatAssistant'
+
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [showServicesMenu, setShowServicesMenu] = useState(false)
@@ -30,7 +32,7 @@ export default function Header() {
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 bg-primary rounded-lg flex items-center justify-center">
                 <svg className="w-10 h-10 text-white" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z"/>
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" />
                 </svg>
               </div>
               <div>
@@ -42,7 +44,7 @@ export default function Header() {
             {/* Desktop Navigation */}
             <nav className="hidden lg:flex gap-8">
               <Link href="/" className="text-gray-700 hover:text-primary font-semibold">الرئيسية</Link>
-              <div 
+              <div
                 className="relative"
                 onMouseEnter={() => setShowServicesMenu(true)}
                 onMouseLeave={() => setShowServicesMenu(false)}
@@ -50,7 +52,7 @@ export default function Header() {
                 <button className="text-gray-700 hover:text-primary font-semibold flex items-center gap-1">
                   الخدمات
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd"/>
+                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
                   </svg>
                 </button>
                 {showServicesMenu && (
@@ -72,12 +74,15 @@ export default function Header() {
 
             {/* Search and Mobile Menu */}
             <div className="flex items-center gap-4">
+              {/* Chat Assistant */}
+              <ChatAssistant />
+
               <button className="p-2 hover:bg-gray-100 rounded-lg">
                 <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </button>
-              <button 
+              <button
                 className="lg:hidden p-2 hover:bg-gray-100 rounded-lg"
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
               >

@@ -265,6 +265,7 @@
   --qiwa-success: #059669;
   --qiwa-warning: #EA580C;
   --qiwa-error: #DC2626;
+  --qiwa-sidebar-width: 280px;
 }
 
 /* Qiwa Sidebar */
@@ -272,12 +273,12 @@
   position: fixed;
   top: 0;
   right: 0;
-  width: 280px;
+  width: var(--qiwa-sidebar-width);
   height: 100vh;
   background: white;
   border-left: 1px solid var(--qiwa-border-light);
   overflow-y: auto;
-  transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  transition: width 300ms cubic-bezier(0.4, 0, 0.2, 1), transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 100;
   box-shadow: -2px 0 8px rgba(0, 0, 0, 0.05);
 }
@@ -285,6 +286,7 @@
 @media (max-width: 1023px) {
   .qiwa-sidebar {
     transform: translateX(100%);
+    width: 280px; /* Fixed width on mobile */
   }
   
   .qiwa-sidebar.open {
@@ -305,6 +307,8 @@
   color: var(--qiwa-text-primary);
   transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .qiwa-sidebar-item:hover {
@@ -321,9 +325,10 @@
 .qiwa-page-content {
   min-height: 100vh;
   background-color: var(--qiwa-light);
-  padding-right: 280px;
+  padding-right: var(--qiwa-sidebar-width);
   padding-top: 2rem;
   padding-bottom: 2rem;
+  transition: padding-right 300ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @media (max-width: 1023px) {
