@@ -151,14 +151,17 @@ AgentX is **not a simple chatbot** — it's a **true AI Agent** built for the Sa
 | **Proactivity** | Reactive only | Predicts needs before asking |
 | **Learning** | No memory | Learns from every interaction |
 
-### ⚡ **Agent Capabilities**
+### ⚡ **Agent Capabilities (Fully Agentic Architecture)**
 
-✅ **Autonomous Execution**: Agent decides which tools to use and executes them without asking  
+✅ **Autonomous Execution**: LLM (GPT-120B) decides which tools to use without asking  
 ✅ **Multi-Step Planning**: Breaks complex tasks into steps (fetch → analyze → update → confirm)  
-✅ **Tool Selection**: Chooses from 20+ tools based on intent and context  
+✅ **Intelligent Tool Selection**: Chooses from 23 tools based on intent and context (LLM-driven)  
 ✅ **Proactive Intelligence**: Monitors data and acts before user requests  
 ✅ **Contextual Memory**: Remembers conversations and user behavior  
 ✅ **Self-Learning**: Logs every action to improve future decisions  
+✅ **Tool Chaining**: Automatically chains multiple tools for complex workflows (maxSteps: 10)  
+
+**Built with Vercel AI SDK + Groq GPT-OSS-120B** - True agentic behavior where the LLM autonomously selects and executes tools.  
 
 ---
 
@@ -316,9 +319,9 @@ Step 5: Learning
 
 ---
 
-## 🛠️ Agent Tools System (20+ Tools)
+## 🛠️ Agent Tools System (23 Tools)
 
-The agent has access to specialized tools to interact with the real world (database):
+The agent has access to 23 specialized tools to interact with the real world (database). The LLM (GPT-OSS-120B) autonomously selects and executes tools based on context.
 
 ### Tool Categories
 
@@ -329,27 +332,27 @@ The agent has access to specialized tools to interact with the real world (datab
 | **Contract Management** | 4 tools | View, renew, update employment contracts |
 | **Appointment Scheduling** | 3 tools | Book, cancel, view appointments |
 | **Ticket System** | 3 tools | Open, close, track support tickets |
-| **Proactive Actions** | 3 tools | Fetch events, mark as acted |
-| **Learning & Feedback** | 4 tools | Predict needs, analyze sentiment |
+| **Proactive Actions** | 3 tools | Fetch events, create alerts, mark as acted |
+| **Prediction & Feedback** | 4 tools | Predict needs, record feedback, analyze sentiment |
 
-### How Agent Uses Tools
+**📚 Complete tool reference:** See [`TOOLS-REFERENCE.md`](./TOOLS-REFERENCE.md) for detailed documentation of all 23 tools with examples.
 
-**Agent Tool-Calling Pattern:**
+### How Agent Uses Tools (Agentic Mode)
+
+**Vercel AI SDK + Groq GPT-120B autonomously selects tools:**
 
 ```typescript
 // Agent receives: "ابي شهادة راتب"
 
-🧠 Agent Decision Process:
-1. Intent: "salary_certificate"
-2. Required Tools: [createCertificateTool]
-3. Agent fetches: user_profile, active_contract
-4. Agent generates: certificate content
-5. Agent stores: in certificates table
-6. Agent creates: follow-up ticket
-7. Agent responds: "✅ تم إصدار الشهادة"
+🧠 Agentic Decision Process (LLM-driven):
+1. LLM analyzes: Intent = "salary_certificate"
+2. LLM selects tools: [getContracts, createCertificate, createTicket]
+3. LLM executes: Fetch contract → Generate certificate → Create tracking
+4. LLM validates: Certificate created successfully
+5. LLM responds: "✅ تم إصدار شهادة الراتب #12345"
 ```
 
-**No human in the loop** — Agent executes everything autonomously.
+**100% autonomous** — LLM decides which tools to use, when, and how to chain them together.
 
 ---
 
@@ -949,9 +952,9 @@ npm run dev
 - ✅ Agent executes multi-step tasks autonomously
 
 ### 2. Tool Usage
-- ✅ 20+ specialized tools available to agent
-- ✅ Agent calls tools based on context
-- ✅ Agent chains multiple tools for complex tasks
+- ✅ 23 specialized tools available to agent (LLM-driven selection)
+- ✅ Agent calls tools based on context autonomously
+- ✅ Agent chains multiple tools for complex tasks (up to 10 steps)
 
 ### 3. Proactive Intelligence
 - ✅ Agent monitors database continuously
