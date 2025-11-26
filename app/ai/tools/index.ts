@@ -36,6 +36,9 @@ import { predictUserNeedTool, recordFeedbackTool } from './predictionTools'
 import { getFeedbackTool, analyzeSentimentTool } from './feedbackTools'
 import { getProactiveEventsTool, markEventActedTool, createProactiveEventTool } from './proactiveTools'
 
+// Resume Module Tools (New)
+import { generateResumePDFTool, processUploadedResumeTool } from '@/app/modules/resume'
+
 export const ALL_TOOLS = {
   // Ticket Tools
   createTicketTool,
@@ -57,11 +60,15 @@ export const ALL_TOOLS = {
   cancelAppointmentTool,
   getAppointmentsTool,
   
-  // Resume Tools
+  // Resume Tools (Basic)
   createResumeTool,
   updateResumeTool,
   addCourseToResumeTool,
   getResumeTool,
+  
+  // Resume Module Tools (Advanced - PDF Generation & Upload Processing)
+  generateResumePDFTool,
+  processUploadedResumeTool,
   
   // Prediction Tools
   predictUserNeedTool,
