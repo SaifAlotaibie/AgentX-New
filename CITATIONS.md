@@ -31,17 +31,6 @@ This document provides sources and methodology for **every metric** claimed in t
 **Director's Question: "Why 60% and not 30%?"**
 
 **Your Answer:**
-> "Industry research shows 30% reduction from AI automation alone (Gartner). We add **proactive monitoring** (alerts before contact), which research shows reduces tickets by an additional 27-30% (Sobot, Forrester). Our 60% combines both—which is why we're more effective than basic chatbots."
-
----
-
-### Claim #2: **35% Customer Satisfaction Increase**
-
-
-**Director's Question: "How do you know satisfaction will increase 35%?"**
-
-**Your Answer:**
-> "Forrester found that 72% of customers report high satisfaction with proactive service, compared to industry average of 60% for reactive support. That's a 20% lift. We add autonomous resolution (no waiting), which McKinsey shows increases satisfaction by another 10-15%. Our 35% improvement is based on combining these proven factors."
 
 ---
 
