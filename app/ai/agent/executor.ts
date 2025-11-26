@@ -5,6 +5,47 @@ import AGENT_SYSTEM_PROMPT from './system_prompt'
 import { logAgentAction, updateUserBehavior } from '../tools/logger'
 import { executeProactiveEngineForUser, getProactiveEventsForUser } from '../proactive'
 
+/**
+ * Safe JSON stringification that handles circular references and limits depth
+ */
+function safeStringify(obj: any, maxDepth = 3): string {
+  const seen = new WeakSet()
+
+  const stringify = (value: any, depth: number): any => {
+    if (depth > maxDepth) return '[Max Depth Reached]'
+
+    if (value === null || value === undefined) return String(value)
+    if (typeof value !== 'object') return value
+
+    // Handle circular references
+    if (seen.has(value)) return '[Circular Reference]'
+    seen.add(value)
+
+    if (Array.isArray(value)) {
+      return value.map(item => stringify(item, depth + 1))
+    }
+
+    // Clean object by removing functions and limiting depth
+    const cleanObj: any = {}
+    for (const key in value) {
+      if (value.hasOwnProperty(key)) {
+        const val = value[key]
+        if (typeof val === 'function') continue
+        cleanObj[key] = stringify(val, depth + 1)
+      }
+    }
+    return cleanObj
+  }
+
+  try {
+    const cleaned = stringify(obj, 0)
+    return JSON.stringify(cleaned, null, 2)
+  } catch (error) {
+    console.error('Error in safeStringify:', error)
+    return String(obj)
+  }
+}
+
 interface AgentMessage {
   role: 'user' | 'assistant' | 'system'
   content: string
@@ -159,7 +200,8 @@ async function streamIntelligentResponse(
         if (result.success) {
           toolContext += `\n✅ العملية نجحت\n`
           if (result.data) {
-            toolContext += `البيانات المتوفرة: ${JSON.stringify(result.data, null, 2)}\n`
+            // Use safe stringify to prevent circular references and complex objects
+            toolContext += `البيانات المتوفرة: ${safeStringify(result.data)}\n`
           }
           if (result.message) {
             toolContext += `الرسالة: ${result.message}\n`
@@ -216,10 +258,39 @@ async function streamIntelligentResponse(
 
     console.log('🧠 Calling Groq (openai/gpt-oss-120b) with', messages.length, 'messages')
 
+    // Validate and clean messages - Groq is STRICT about message format
+    // Only allow 'role' and 'content' properties, nothing else
+    const validatedMessages = messages.map((msg, idx) => {
+      // Ensure content is a string
+      let content = msg.content
+      if (typeof content !== 'string') {
+        console.warn(`⚠️ Message ${idx} has non-string content, converting:`, typeof content)
+        content = String(content || '')
+      }
+
+      // Return ONLY role and content - strip all other properties
+      return {
+        role: msg.role,
+        content: content
+      }
+    })
+
+    // Log sample of first and last message for debugging
+    console.log('📝 First message:', {
+      role: validatedMessages[0]?.role,
+      contentLength: validatedMessages[0]?.content?.length || 0
+    })
+    console.log('📝 Last message:', {
+      role: validatedMessages[validatedMessages.length - 1]?.role,
+      contentLength: validatedMessages[validatedMessages.length - 1]?.content?.length || 0
+    })
+
+    console.log('✅ All messages validated and cleaned, streaming to AI...')
+
     // Call Groq via AI SDK with Streaming
     const result = streamText({
-      model: agentModel, // gpt-oss-120b
-      messages: messages as any,
+      model: agentModel, // openai/gpt-oss-120b (120B MoE model, 500+ t/s)
+      messages: validatedMessages as any,
       temperature: 0.5,
       async onFinish({ text }) {
         console.log('✅ Stream finished, saving to DB...')

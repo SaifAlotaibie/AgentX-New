@@ -2,7 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { isValidUUID } from '@/lib/db/db'
-import { executeAgent } from '@/app/ai/agent/executor'
+import { executeAgent } from '@/app/ai/agent'
 import { saveConversation } from '@/lib/db/conversationService'
 
 export async function POST(request: NextRequest) {
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
       return agentResult.response.toUIMessageStreamResponse({
         headers: {
           'X-Agent-Tools': JSON.stringify(agentResult.tools_used || []),
-          'X-Agent-Proactive': JSON.stringify(agentResult.proactive_suggestions || [])
+          'X-Agent-Proactive': JSON.stringify((agentResult as any).proactive_suggestions || [])
         }
       })
     }
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     // Fallback for non-stream response (error cases)
     return NextResponse.json({
       response: agentResult.response,
-      proactive_suggestions: agentResult.proactive_suggestions || []
+      proactive_suggestions: (agentResult as any).proactive_suggestions || []
     })
   } catch (error: any) {
     console.error('[Chat API] Error:', error)
