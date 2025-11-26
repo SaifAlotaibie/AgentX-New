@@ -5,7 +5,7 @@
 [![Next.js](https://img.shields.io/badge/Next.js-15.5.6-black)](https://nextjs.org/)
 [![React](https://img.shields.io/badge/React-19.2.0-blue)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9.3-blue)](https://www.typescriptlang.org/)
-[![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4-green)](https://openai.com/)
+[![Groq](https://img.shields.io/badge/Groq-GPT--OSS--120B-orange)](https://groq.com/)
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-green)](https://supabase.com/)
 [![License](https://img.shields.io/badge/License-MIT-yellow)](./LICENSE)
 
@@ -188,8 +188,8 @@ AgentX is **not a simple chatbot** — it's a **true AI Agent** built for the Sa
 <td width="33%" valign="top">
 
 ### 🤖 AI/ML
-- **LangChain** Framework
-- **OpenAI GPT-4** Turbo
+- **Vercel AI SDK** Framework
+- **Groq GPT-OSS-120B** (500+ t/s)
 - **Whisper** STT
 - **OpenAI TTS**
 - **Custom Agent** Executor
@@ -588,9 +588,9 @@ graph TB
     
     Frontend --> API["API Routes"]
     
-    API --> Agent["LangChain Agent + GPT-4"]
+    API --> Agent["Vercel AI SDK + Groq"]
     
-    Agent --> Tools["20+ Tools:<br/>Resume, Certificates,<br/>Contracts, Tickets"]
+    Agent --> Tools["23 Tools:<br/>Resume, Certificates,<br/>Contracts, Tickets"]
     
     Tools --> Services["Business Services"]
     
@@ -627,11 +627,11 @@ graph TB
         ProactiveAPI["/api/proactive/events"]
     end
     
-    subgraph "AI Agent Core - LangChain"
-        LangChainExecutor[LangChain AgentExecutor]
-        LLM[ChatOpenAI GPT-4]
-        PromptTemplate[Prompt Template]
-        Memory[BufferMemory]
+    subgraph "AI Agent Core - Vercel AI SDK"
+        Executor[Agentic Executor]
+        StreamText[streamText()]
+        Groq[Groq GPT-120B]
+        ToolsRegistry[Tool Registry]
     end
     
     subgraph "Tools System"
@@ -668,15 +668,16 @@ graph TB
     UI --> Pages
     Pages --> ChatAPI
     
-    ChatAPI --> LangChainExecutor
-    LangChainExecutor --> PromptTemplate
-    PromptTemplate --> LLM
-    LLM --> Memory
-    LangChainExecutor --> ResumeTool
-    LangChainExecutor --> CertTool
-    LangChainExecutor --> ContractTool
-    LangChainExecutor --> TicketTool
-    LangChainExecutor --> ApptTool
+    ChatAPI --> Executor
+    Executor --> StreamText
+    StreamText --> Groq
+    StreamText --> ToolsRegistry
+    
+    ToolsRegistry --> ResumeTool
+    ToolsRegistry --> CertTool
+    ToolsRegistry --> ContractTool
+    ToolsRegistry --> TicketTool
+    ToolsRegistry --> ApptTool
     
     ResumeTool --> ResumeService
     ContractTool --> ContractService
@@ -691,14 +692,13 @@ graph TB
     Supabase_Client --> Resumes
     Supabase_Client --> Contracts
     
-    LLM --> Conversations
-    Memory --> Conversations
-    Memory --> Behavior
-    Memory --> Actions
+    Executor --> Conversations
+    Executor --> Behavior
+    Executor --> Actions
     
-    style LangChainExecutor fill:#4CAF50,stroke:#2E7D32,stroke-width:3px
-    style LLM fill:#FF9800,stroke:#E65100,stroke-width:2px
-    style Memory fill:#00BCD4,stroke:#0097A7,stroke-width:2px
+    style Executor fill:#4CAF50,stroke:#2E7D32,stroke-width:3px
+    style Groq fill:#FF9800,stroke:#E65100,stroke-width:2px
+    style Conversations fill:#00BCD4,stroke:#0097A7,stroke-width:2px
 ```
 
 </details>
@@ -736,75 +736,6 @@ sequenceDiagram
     Agent-->>User: تم تحديث سيرتك الذاتية بنجاح! ✅<br/>سنوات خبرتك الآن: 10 سنوات
     
     Note over User,DB: العملية تمت في ثواني معدودة
-```
-
-**النقاط الرئيسية:**
-- 🧠 **الذكاء**: النظام يفهم القصد من الكلام العادي
-- ⚡ **السرعة**: التنفيذ يتم تلقائياً بدون تدخل بشري
-- 🎯 **الدقة**: يجلب البيانات الحالية قبل التحديث
-- 📝 **الشفافية**: يحفظ كل عملية في النظام
-- ✅ **النتيجة**: رد واضح ومباشر بالعربي
-
----
-
-### LangChain Agent Workflow
-
-```mermaid
-flowchart TD
-    Start([User Message]) --> Init[Initialize LangChain<br/>AgentExecutor]
-    
-    Init --> LoadMemory[Load from BufferMemory<br/>Last 20 conversations]
-    
-    LoadMemory --> BuildPrompt[Build Prompt Template:<br/>- System prompt<br/>- Chat history<br/>- User message<br/>- Agent scratchpad]
-    
-    BuildPrompt --> SendToLLM[Send to ChatOpenAI<br/>GPT-4]
-    
-    SendToLLM --> LLMDecision{GPT-4 Decision}
-    
-    LLMDecision -->|Call Tool| FunctionCall[Function Call:<br/>Select tool from 20+ tools]
-    LLMDecision -->|No Tool Needed| DirectResponse[Generate<br/>Direct Response]
-    
-    FunctionCall --> ExecuteTool[Execute DynamicStructuredTool]
-    ExecuteTool --> DBOperation[(Database Operation<br/>via Supabase)]
-    DBOperation --> ToolResult[Tool Result]
-    
-    ToolResult --> UpdateScratchpad[Add to agent_scratchpad]
-    UpdateScratchpad --> BuildPrompt
-    
-    DirectResponse --> SaveMemory[Save to BufferMemory<br/>& Database]
-    
-    SaveMemory --> ConvDB[(conversations)]
-    SaveMemory --> BehaviorDB[(user_behavior)]
-    SaveMemory --> ActionsDB[(agent_actions_log)]
-    
-    SaveMemory --> Response([Return Response<br/>to User])
-    
-    style SendToLLM fill:#FF9800,stroke:#E65100,stroke-width:3px
-    style ExecuteTool fill:#4CAF50,stroke:#2E7D32,stroke-width:2px
-    style DBOperation fill:#9C27B0,stroke:#6A1B9A,stroke-width:2px
-    style SaveMemory fill:#00BCD4,stroke:#0097A7,stroke-width:2px
-```
-
-### Agent Decision Making Process
-
-```mermaid
-graph LR
-    Input["User Input: Update Resume"] --> Agent[LangChain Agent]
-    
-    subgraph "Agent Brain - GPT-4"
-        Agent --> Step1[1. Analyze Intent]
-        Step1 --> Step2[2. Select Tools]
-        Step2 --> Step3[3. Execute Tools]
-        Step3 --> Step4[4. Generate Response]
-    end
-    
-    Step2 -->|getResumeTool| DB1[(Get current data)]
-    Step2 -->|updateResumeTool| DB2[(Update data)]
-    
-    DB1 --> Result1[experience_years: 5]
-    DB2 --> Result2["experience_years: 10 ✓"]
-    
-    Result1 --> Step4
     Result2 --> Step4
     
     Step4 --> Output["Response: Updated Successfully"]
@@ -927,8 +858,8 @@ erDiagram
 ```
 
 **📚 For detailed architecture diagrams, see:**
-- [`DATA-FLOW-ARCHITECTURE.md`](./DATA-FLOW-ARCHITECTURE.md) - Complete data flow (15+ diagrams)
-- [`LANGCHAIN-WORKFLOW.md`](./LANGCHAIN-WORKFLOW.md) - LangChain implementation details
+- [`ARCHITECTURE.md`](./ARCHITECTURE.md) - Complete data flow
+- [`VERCEL-AI-SDK-WORKFLOW.md`](./VERCEL-AI-SDK-WORKFLOW.md) - Vercel AI SDK implementation details
 - [`TECH-STACK.md`](./TECH-STACK.md) - Complete technology stack
 
 ---
@@ -967,20 +898,21 @@ npm run dev
 
 ## 🛠️ Tech Stack
 
-**Agent Framework**: Custom (No LangChain - Built from scratch)  
-**LLM**: OpenAI GPT-4 (Direct API)  
-**Tools**: 20+ custom TypeScript functions  
-**Memory**: Supabase PostgreSQL (13 tables)  
-**Frontend**: Next.js 15 + React 19 + TypeScript  
+**Agent Framework**: Custom Rule-Based + LLM Response Generation
+**LLM**: Groq GPT-OSS-120B (500+ tokens/sec, $0.15/M input tokens)
+**AI SDK**: Vercel AI SDK v5 with streaming support
+**Tools**: 20+ custom TypeScript functions
+**Memory**: Supabase PostgreSQL (13 tables)
+**Frontend**: Next.js 15 + React 19 + TypeScript
 **Voice**: Whisper (STT) + OpenAI TTS
 
-### Why Custom Agent (Not LangChain)?
+### Why Groq GPT-OSS-120B?
 
-✅ Full control over agent decision-making  
-✅ Custom proactive intelligence requires custom logic  
-✅ Better performance (no abstraction overhead)  
-✅ Easier debugging of agent behavior  
-✅ Tailored for government service requirements  
+✅ **Ultra-fast inference** - 500+ tokens/second on Groq LPU™ hardware
+✅ **Cost-effective** - 40x cheaper than GPT-4 ($0.15/M vs $6/M tokens)
+✅ **High quality** - OpenAI's 120B parameter MoE model
+✅ **Tool calling support** - Native function calling for agentic behavior
+✅ **Open weights** - Transparent and customizable  
 
 ---
 

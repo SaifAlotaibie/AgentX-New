@@ -38,7 +38,7 @@ mindmap
       TypeScript
       OpenAI SDK
     AI/ML
-      LangChain Framework
+      Vercel AI SDK
       OpenAI GPT-4
       Whisper STT
       OpenAI TTS
@@ -61,7 +61,7 @@ mindmap
 | **Frontend Framework** | Next.js 15, React 19 | UI/UX, SSR, Routing |
 | **Programming Language** | TypeScript 5.9 | Type safety, Developer experience |
 | **Styling** | Tailwind CSS 4.0 | Responsive design, Custom theme |
-| **AI Framework** | LangChain 0.1.x | Agent orchestration, Tool management |
+| **AI Framework** | Vercel AI SDK 4.x | Agent orchestration, Tool management |
 | **AI/LLM** | OpenAI GPT-4 Turbo | Agent brain, Natural language |
 | **Database** | Supabase (PostgreSQL) | Data persistence, Real-time |
 | **Cloud Platform** | Vercel | Deployment, Edge computing |
@@ -411,110 +411,72 @@ const speech = await openai.audio.speech.create({
 
 ---
 
-### 4.4 LangChain Framework
+### 4.4 Vercel AI SDK Framework
 
-**Version**: `@langchain/core` 0.1.x + `@langchain/openai` 0.0.x
+**Version**: `ai` 4.x + `@ai-sdk/groq` 1.x
 
-**Why LangChain**:
-- ✅ **Agent Framework** (Pre-built agent patterns)
-- ✅ **Tool Integration** (Easy tool management)
-- ✅ **Memory Management** (Built-in conversation memory)
-- ✅ **Chain Composition** (Complex workflows)
-- ✅ **Prompt Templates** (Reusable prompts)
-- ✅ **Output Parsers** (Structured responses)
+**Why Vercel AI SDK**:
+- **Streaming First**: Built for real-time streaming responses (essential for chat)
+- **Type-Safe**: Native TypeScript support with Zod schemas
+- **Lightweight**: Minimal overhead compared to LangChain
+- **Provider Agnostic**: Easy to switch between OpenAI, Groq, Anthropic
+- **React Integration**: `useChat` hook makes frontend integration trivial
 
-**Architecture**: LangChain + Custom Tools
+**Architecture**: Vercel AI SDK + Native Tool Calling
 
-**Components**:
+**Key Components**:
+- **`streamText`**: Core function for LLM interaction
+- **`tool`**: Helper for defining tools with Zod schemas
+- **`generateText`**: For non-streaming operations
+- **`useChat`**: React hook for chat state management
 
-```mermaid
-graph LR
-    Input[User Input] --> Executor[Agent Executor]
-    Executor --> Intent[Intent Analyzer]
-    Intent --> Tools[Tool Selector]
-    Tools --> Params[Parameter Extractor]
-    Params --> Execute[Tool Execution]
-    Execute --> Context[Context Builder]
-    Context --> GPT4[GPT-4 Response]
-    GPT4 --> Memory[Save to Memory]
-    Memory --> Output[Response]
-```
+**Implementation**:
 
-**LangChain Implementation**:
 ```typescript
-import { ChatOpenAI } from '@langchain/openai'
-import { AgentExecutor, createOpenAIFunctionsAgent } from 'langchain/agents'
-import { ChatPromptTemplate, MessagesPlaceholder } from '@langchain/core/prompts'
-import { DynamicStructuredTool } from '@langchain/core/tools'
+import { streamText } from 'ai'
+import { createGroq } from '@ai-sdk/groq'
+import { z } from 'zod'
 
-// Initialize LLM
-const llm = new ChatOpenAI({
-  modelName: 'gpt-4-turbo-preview',
-  temperature: 0.7,
-  openAIApiKey: process.env.OPENAI_API_KEY
+// 1. Initialize Groq
+const groq = createGroq({
+  apiKey: process.env.GROQ_API_KEY
 })
 
-// Define prompt template
-const prompt = ChatPromptTemplate.fromMessages([
-  ['system', SYSTEM_PROMPT],
-  new MessagesPlaceholder('chat_history'),
-  ['human', '{input}'],
-  new MessagesPlaceholder('agent_scratchpad')
-])
+// 2. Define Tools
+const tools = {
+  getResume: tool({
+    description: 'Get user resume',
+    parameters: z.object({ userId: z.string() }),
+    execute: async ({ userId }) => { ... }
+  })
+}
 
-// Create agent with tools
-const agent = await createOpenAIFunctionsAgent({
-  llm,
-  tools: ALL_TOOLS,
-  prompt
-})
-
-// Create executor
-const agentExecutor = new AgentExecutor({
-  agent,
-  tools: ALL_TOOLS,
-  verbose: true,
-  returnIntermediateSteps: true
-})
-
-// Execute
-const result = await agentExecutor.invoke({
-  input: userMessage,
-  chat_history: conversationHistory
+// 3. Execute Agent
+const result = streamText({
+  model: groq('openai/gpt-oss-120b'),
+  messages: messages,
+  tools: tools,
+  maxSteps: 10 // Enable multi-step agent loop
 })
 ```
 
-**Core Files**:
+**Project Structure**:
 ```
 app/ai/
 ├── agent/
-│   ├── executor.ts           # LangChain Agent Executor
-│   ├── system_prompt.ts      # Agent personality
-│   └── welcome_message.ts    # Dynamic greeting
-├── tools/
-│   ├── index.ts              # Tool registry (LangChain Tools)
-│   ├── resumeTools.ts        # Resume management (DynamicStructuredTool)
-│   ├── certificateTools.ts   # Certificate generation
-│   ├── contractTools.ts      # Contract operations
-│   ├── ticketTools.ts        # Support tickets
-│   └── appointmentTools.ts   # Appointment booking
-└── proactive/
-    ├── proactive_engine.ts   # Proactive triggers
-    └── prediction_engine.ts  # ML predictions
+│   ├── executor-agentic.ts   # Vercel AI SDK Executor
+│   ├── groq-client.ts        # Groq Client Config
+│   ├── tools-agentic.ts      # Tool Definitions (Zod)
+│   └── index.ts              # Entry point
+├── proactive/                # Proactive Engine
+└── tools/                    # Base Tool Implementations
 ```
 
-**LangChain Features Used**:
-
-| Feature | Implementation | Purpose |
-|---------|---------------|---------|
-| **Agent Executor** | `AgentExecutor` | Main agent loop with tool calling |
-| **OpenAI Functions** | `createOpenAIFunctionsAgent` | Function calling pattern |
-| **Tools** | `DynamicStructuredTool` | 20+ custom tools |
-| **Memory** | `BufferMemory` | Conversation history |
-| **Chains** | `LLMChain` | Sequential processing |
-| **Prompt Templates** | `ChatPromptTemplate` | Structured prompts |
-| **Output Parsers** | `StructuredOutputParser` | JSON responses |
-| **Callbacks** | `CallbackHandler` | Logging & monitoring |
+**Vercel AI SDK Features Used**:
+- **`maxSteps`**: Enables the agentic loop (multi-step reasoning)
+- **`onStepFinish`**: For logging tool execution
+- **`tool`**: For type-safe tool definitions
+- **`streamText`**: For streaming responses to the UI
 
 ---
 
@@ -899,9 +861,9 @@ npm run lint         # Code linting
     "typescript": "5.9.3",
     "@supabase/supabase-js": "^2.39.0",
     "openai": "^4.20.0",
-    "@langchain/core": "^0.1.52",
-    "@langchain/openai": "^0.0.28",
-    "langchain": "^0.1.30",
+    "ai": "^4.20.0",
+    "@ai-sdk/groq": "^1.0.0",
+    "@ai-sdk/react": "^1.0.0",
     "lucide-react": "^0.400.0",
     "tailwindcss": "^4.0.0"
   }
@@ -1095,7 +1057,7 @@ setInterval(() => {
 | **Frontend** | React, Vue, Angular | React + Next.js | Best ecosystem, Vercel optimization |
 | **Language** | JavaScript, TypeScript | TypeScript | Type safety, better DX |
 | **Styling** | CSS, Sass, Tailwind | Tailwind CSS | Rapid development, consistency |
-| **Agent Framework** | LangChain, Custom, LlamaIndex | LangChain | Mature, well-documented, community |
+| **Agent Framework** | Vercel AI SDK, LangChain, LlamaIndex | Vercel AI SDK | Modern, streaming-first, lightweight |
 | **LLM** | GPT-4, Claude, Gemini | OpenAI GPT-4 | Best reasoning, Arabic support |
 | **Database** | MySQL, PostgreSQL, MongoDB | PostgreSQL (Supabase) | Relational data, ACID, powerful |
 | **Hosting** | AWS, GCP, Vercel | Vercel | Next.js optimization, ease |
@@ -1179,9 +1141,9 @@ react@19.2.0
 typescript@5.9.3
 @supabase/supabase-js@2.39.0
 openai@4.20.0
-@langchain/core@0.1.52
-@langchain/openai@0.0.28
-langchain@0.1.30
+ai@4.20.0
+@ai-sdk/groq@1.0.0
+@ai-sdk/react@1.0.0
 tailwindcss@4.0.0
 lucide-react@0.400.0
 ```
