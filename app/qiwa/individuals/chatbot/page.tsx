@@ -42,6 +42,23 @@ function ChatbotPageContent({ userId }: { userId: string }) {
   const [currentThinkingStage, setCurrentThinkingStage] = useState<ThinkingStage | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [input, setInput] = useState('')
+  const [userName, setUserName] = useState<string | null>(null)
+
+  // Fetch user name on mount
+  useEffect(() => {
+    const fetchUserName = async () => {
+      try {
+        const response = await fetch(`/api/user/profile?user_id=${userId}`)
+        if (response.ok) {
+          const data = await response.json()
+          setUserName(data.full_name || null)
+        }
+      } catch (error) {
+        console.error('Error fetching user name:', error)
+      }
+    }
+    fetchUserName()
+  }, [userId])
 
   // Initialize useChat hook with transport
   const { messages, sendMessage, status, setMessages } = useChat({
@@ -308,7 +325,9 @@ function ChatbotPageContent({ userId }: { userId: string }) {
                 قوى - المساعد الذكي
               </h2>
               <div className="text-base leading-relaxed" style={{ color: 'var(--qiwa-text-secondary)' }}>
-                <p className="mb-2">مرحباً بك في المساعد الذكي! 👋</p>
+                <p className="mb-2">
+                  {userName ? `مرحباً ${userName}!` : 'مرحباً بك في المساعد الذكي!'} 👋
+                </p>
                 <p>كيف يمكنني مساعدتك اليوم؟</p>
               </div>
             </div>

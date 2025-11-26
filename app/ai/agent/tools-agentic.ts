@@ -8,6 +8,39 @@ import { z } from 'zod'
 import { ALL_TOOLS } from '../tools'
 
 /**
+ * 🔑 Helper for user_id preprocessing
+ * Handles: undefined, null, empty string, and the STRING "undefined"
+ */
+const DUMMY_UUID = '00000000-0000-0000-0000-000000000000'
+const preprocessUserId = (val: any) => {
+  // Return dummy UUID if val is:
+  // - undefined, null, empty string, OR
+  // - the STRING "undefined"
+  if (!val || val === 'undefined') {
+    return DUMMY_UUID
+  }
+  return val
+}
+
+/**
+ * USER PROFILE TOOLS
+ */
+
+export const getUserProfile = tool({
+  description: `Get user's profile information including full_name, phone, email, nationality, job_title, etc.
+  Use this when user asks about their name, contact info, or personal details.`,
+  parameters: z.object({
+    user_id: z.preprocess(preprocessUserId, z.string().uuid())
+  }),
+  execute: async ({ user_id }) => {
+    console.log('🔧 [LLM CALL] getUserProfile:', user_id)
+    const result = await ALL_TOOLS.getUserProfileTool.execute({ user_id })
+    console.log('📊 [RESULT]', result.success ? '✅' : '❌')
+    return result
+  }
+})
+
+/**
  * RESUME TOOLS
  */
 
@@ -16,7 +49,7 @@ export const getResume = tool({
   Use this FIRST before any resume operations to see current data.
   Returns resume object with courses array.`,
   parameters: z.object({
-    user_id: z.string().uuid().describe('UUID of the user')
+    user_id: z.preprocess(preprocessUserId, z.string().uuid()).describe('UUID of the user')
   }),
   execute: async ({ user_id }) => {
     console.log('🔧 [LLM CALL] getResume:', user_id)
@@ -31,7 +64,7 @@ export const createResume = tool({
   Required: job_title
   Optional: experience_years, education, summary, skills array`,
   parameters: z.object({
-    user_id: z.string().uuid(),
+    user_id: z.preprocess(preprocessUserId, z.string().uuid()),
     job_title: z.string().min(2).describe('Job title in Arabic (required)'),
     experience_years: z.number().int().min(0).max(50).optional().describe('Years of experience'),
     education: z.string().optional().describe('Education level in Arabic'),
@@ -47,23 +80,29 @@ export const createResume = tool({
 })
 
 export const updateResume = tool({
-  description: `Update user's resume fields. Only include fields you want to change.
-  Supported fields:
-  - job_title: Job title in Arabic (e.g. "مهندس برمجيات")
-  - experience_years: Number of years (0-50)
-  - education: Education level in Arabic (e.g. "بكالوريوس")
+  description: `Update user's resume fields. Extract the requested changes from the user's message in Arabic.
+  
+  EXAMPLES OF PARAMETER EXTRACTION:
+  - User says "غير المسمى الوظيفي الى مهندس برمجيات" → job_title: "مهندس برمجيات"
+  - User says "حدث سنوات الخبرة الى 5" → experience_years: 5
+  - User says "المؤهل بكالوريوس علوم الحاسب" → education: "بكالوريوس علوم الحاسب"
+  
+  Supported fields (ALL OPTIONAL - only include fields user wants to change):
+  - job_title: Job title in Arabic (e.g. "مهندس برمجيات", "مهندس ذكاء اصطناعي")
+  - experience_years: Number of years (e.g. 0, 1, 5, 10)
+  - education: Education level in Arabic (e.g. "بكالوريوس", "بكالوريوس علوم الحاسب")
   - summary: Professional summary in Arabic
-  - skills: Array of skills in Arabic (e.g. ["JavaScript", "Python"])
+  - skills: Array of skills in Arabic (e.g. ["JavaScript", "Python", "التعلم الآلي"])
 
-  IMPORTANT: Call getResume first to see current values before updating.
-  This automatically creates a tracking ticket.`,
+IMPORTANT: ALWAYS call getResume first to see current values before updating.
+This automatically creates a tracking ticket.`,
   parameters: z.object({
-    user_id: z.string().uuid(),
-    job_title: z.string().min(2).optional().describe('Job title in Arabic'),
-    experience_years: z.number().int().min(0).max(50).optional().describe('Years of experience'),
-    education: z.string().optional().describe('Education level in Arabic'),
-    summary: z.string().optional().describe('Professional summary in Arabic'),
-    skills: z.array(z.string()).optional().describe('Array of skills in Arabic')
+    user_id: z.preprocess(preprocessUserId, z.string().uuid()),
+    job_title: z.string().min(2).nullable().optional().describe('المسمى الوظيفي بالعربي - Job title in Arabic (e.g. "مهندس ذكاء اصطناعي")'),
+    experience_years: z.number().int().min(0).max(50).nullable().optional().describe('عدد سنوات الخبرة - Years of experience as a number'),
+    education: z.string().nullable().optional().describe('المؤهل العلمي بالعربي - Education level in Arabic (e.g. "بكالوريوس علوم الحاسب")'),
+    summary: z.string().nullable().optional().describe('الملخص المهني بالعربي - Professional summary in Arabic'),
+    skills: z.array(z.string()).nullable().optional().describe('المهارات كمصفوفة بالعربي - Array of skills in Arabic')
   }),
   execute: async (params) => {
     console.log('🔧 [LLM CALL] updateResume:', params)
@@ -73,11 +112,61 @@ export const updateResume = tool({
   }
 })
 
+// WORKAROUND: Tool that accepts raw Arabic instruction text and parses it programmatically
+export const updateResumeFromText = tool({
+  description: `تحديث السيرة الذاتية من نص عربي. استخدم هذه الأداة عندما يطلب المستخدم تحديث سيرته.
+  
+  أمثلة:
+  - "غير المسمى الوظيفي الى مهندس ذكاء اصطناعي"
+  - "حدث الخبرة الى 5 سنوات والمؤهل الى بكالوريوس"
+  - "اضف مهارة Python و JavaScript"
+  
+  فقط مرر نص المستخدم كما هو، وسيتم تحليله تلقائياً.`,
+  parameters: z.object({
+    user_id: z.preprocess(preprocessUserId, z.string().uuid()),
+    instruction: z.string().min(3).describe('نص التحديث بالعربي - Raw Arabic instruction text from user')
+  }),
+  execute: async ({ user_id, instruction }: { user_id: string; instruction: string }) => {
+    console.log('🔧 [LLM CALL] updateResumeFromText:', instruction)
+
+    // Parse Arabic instruction to extract parameters
+    const updates: any = {}
+
+    // Extract job_title
+    const jobTitleMatch = instruction.match(/(?:المسمى الوظيفي|الوظيفة|المسمى)(?:\s+(?:الى|إلى|:))?\s+(.+?)(?:\s+و|\s+،|$)/i)
+    if (jobTitleMatch) {
+      updates.job_title = jobTitleMatch[1].trim()
+    }
+
+    // Extract experience_years
+    const expMatch = instruction.match(/(?:الخبرة|سنوات الخبرة|خبرة)(?:\s+(?:الى|إلى|:))?\s+(\d+)/i)
+    if (expMatch) {
+      updates.experience_years = parseInt(expMatch[1])
+    }
+
+    // Extract education
+    const eduMatch = instruction.match(/(?:المؤهل|التعليم|الدراسة)(?:\s+(?:الى|إلى|:))?\s+(.+?)(?:\s+و|\s+،|$)/i)
+    if (eduMatch) {
+      updates.education = eduMatch[1].trim()
+    }
+
+    console.log('📝 Parsed updates:', updates)
+
+    const result = await ALL_TOOLS.updateResumeTool.execute({
+      user_id,
+      ...updates
+    })
+
+    console.log('📊 [RESULT]', result.success ? '✅' : '❌')
+    return result
+  }
+})
+
 export const addCourse = tool({
   description: `Add training course to user's resume.
   Creates course record linked to resume.`,
   parameters: z.object({
-    user_id: z.string().uuid(),
+    user_id: z.preprocess(preprocessUserId, z.string().uuid()),
     course_name: z.string().min(3).describe('Course name in Arabic'),
     provider: z.string().min(2).describe('Course provider/institution in Arabic'),
     completion_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()
@@ -104,7 +193,7 @@ export const createCertificate = tool({
 
   Automatically creates tracking ticket.`,
   parameters: z.object({
-    user_id: z.string().uuid(),
+    user_id: z.preprocess(preprocessUserId, z.string().uuid()),
     type: z.enum(['salary_definition', 'service_certificate', 'labor_license'])
       .describe('Type of certificate to generate')
   }),
@@ -119,7 +208,7 @@ export const createCertificate = tool({
 export const getCertificates = tool({
   description: 'Get all certificates issued for user. Returns array of certificates with type, issue date, and content.',
   parameters: z.object({
-    user_id: z.string().uuid()
+    user_id: z.preprocess(preprocessUserId, z.string().uuid())
   }),
   execute: async ({ user_id }) => {
     console.log('🔧 [LLM CALL] getCertificates:', user_id)
@@ -142,7 +231,7 @@ export const getContracts = tool({
   - end_date: Contract end date (YYYY-MM-DD)
   - status: active/expired/renewed`,
   parameters: z.object({
-    user_id: z.string().uuid()
+    user_id: z.preprocess(preprocessUserId, z.string().uuid())
   }),
   execute: async ({ user_id }) => {
     console.log('🔧 [LLM CALL] getContracts:', user_id)
@@ -155,7 +244,7 @@ export const getContracts = tool({
 export const checkContractExpiry = tool({
   description: 'Check if user contract is expiring soon (within 30 days). Returns expiry status and days remaining.',
   parameters: z.object({
-    user_id: z.string().uuid()
+    user_id: z.preprocess(preprocessUserId, z.string().uuid())
   }),
   execute: async ({ user_id }) => {
     console.log('🔧 [LLM CALL] checkContractExpiry:', user_id)
@@ -171,7 +260,7 @@ export const renewContract = tool({
 
   IMPORTANT: Check contract end_date first with getContracts or checkContractExpiry.`,
   parameters: z.object({
-    user_id: z.string().uuid(),
+    user_id: z.preprocess(preprocessUserId, z.string().uuid()),
     contract_id: z.string().uuid().optional().describe('Contract ID (optional, uses most recent if not provided)'),
     duration: z.number().int().positive().optional().default(1)
       .describe('Duration to extend (default 1)'),
@@ -190,7 +279,7 @@ export const updateContract = tool({
   description: `Update contract details like salary or position.
   Can update: salary, position, employer_name.`,
   parameters: z.object({
-    user_id: z.string().uuid(),
+    user_id: z.preprocess(preprocessUserId, z.string().uuid()),
     contract_id: z.string().uuid().optional(),
     salary: z.number().positive().optional().describe('New salary amount'),
     position: z.string().optional().describe('New position/job title'),
@@ -219,7 +308,7 @@ export const createTicket = tool({
   - technical: Technical errors
   - general: General inquiries`,
   parameters: z.object({
-    user_id: z.string().uuid(),
+    user_id: z.preprocess(preprocessUserId, z.string().uuid()),
     title: z.string().min(5).describe('Ticket title in Arabic'),
     description: z.string().min(10).describe('Detailed description in Arabic'),
     category: z.enum([
@@ -243,7 +332,7 @@ export const createTicket = tool({
 export const checkTicketStatus = tool({
   description: 'Check status of user tickets. Returns all tickets if ticket_id not provided.',
   parameters: z.object({
-    user_id: z.string().uuid(),
+    user_id: z.preprocess(preprocessUserId, z.string().uuid()),
     ticket_id: z.string().uuid().optional().describe('Specific ticket ID (optional)')
   }),
   execute: async (params) => {
@@ -275,7 +364,7 @@ export const closeTicket = tool({
 export const getAppointments = tool({
   description: 'Get user appointments at labor offices. Returns upcoming and past appointments.',
   parameters: z.object({
-    user_id: z.string().uuid()
+    user_id: z.preprocess(preprocessUserId, z.string().uuid())
   }),
   execute: async ({ user_id }) => {
     console.log('🔧 [LLM CALL] getAppointments:', user_id)
@@ -289,7 +378,7 @@ export const scheduleAppointment = tool({
   description: `Schedule appointment at labor office.
   Requires date (YYYY-MM-DD), time (HH:MM), and office location.`,
   parameters: z.object({
-    user_id: z.string().uuid(),
+    user_id: z.preprocess(preprocessUserId, z.string().uuid()),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe('Date in YYYY-MM-DD format'),
     time: z.string().regex(/^\d{2}:\d{2}$/).describe('Time in HH:MM format (24-hour)'),
     office_location: z.string().min(3).describe('Office location in Arabic')
@@ -305,7 +394,7 @@ export const scheduleAppointment = tool({
 export const cancelAppointment = tool({
   description: 'Cancel an appointment. Requires appointment ID.',
   parameters: z.object({
-    user_id: z.string().uuid(),
+    user_id: z.preprocess(preprocessUserId, z.string().uuid()),
     appointment_id: z.string().uuid().describe('Appointment ID to cancel')
   }),
   execute: async (params) => {
@@ -324,7 +413,7 @@ export const getProactiveEvents = tool({
   description: `Get pending proactive events for user (contract expiry warnings, open tickets, incomplete profiles, etc).
   These are system-detected events that require user attention.`,
   parameters: z.object({
-    user_id: z.string().uuid(),
+    user_id: z.preprocess(preprocessUserId, z.string().uuid()),
     limit: z.number().int().positive().optional().default(5).describe('Maximum number of events to return')
   }),
   execute: async (params) => {
@@ -352,7 +441,7 @@ export const markEventActed = tool({
 export const createProactiveEvent = tool({
   description: 'Create new proactive event for user. Use when detecting issues or upcoming deadlines.',
   parameters: z.object({
-    user_id: z.string().uuid(),
+    user_id: z.preprocess(preprocessUserId, z.string().uuid()),
     event_type: z.string().describe('Type of event (e.g. contract_expiring, incomplete_profile)'),
     suggested_action: z.string().describe('Suggested action for user in Arabic'),
     metadata: z.record(z.any()).optional().describe('Additional event metadata')
@@ -372,7 +461,7 @@ export const createProactiveEvent = tool({
 export const predictUserNeed = tool({
   description: 'Analyze user behavior to predict their next need based on historical patterns.',
   parameters: z.object({
-    user_id: z.string().uuid()
+    user_id: z.preprocess(preprocessUserId, z.string().uuid())
   }),
   execute: async ({ user_id }) => {
     console.log('🔧 [LLM CALL] predictUserNeed:', user_id)
@@ -385,7 +474,7 @@ export const predictUserNeed = tool({
 export const recordFeedback = tool({
   description: 'Record user feedback/rating for agent interaction.',
   parameters: z.object({
-    user_id: z.string().uuid(),
+    user_id: z.preprocess(preprocessUserId, z.string().uuid()),
     rating: z.number().int().min(1).max(5).describe('Rating from 1-5'),
     feedback_text: z.string().optional().describe('Optional feedback text in Arabic'),
     interaction_type: z.string().describe('Type of interaction being rated')
@@ -401,7 +490,7 @@ export const recordFeedback = tool({
 export const getFeedback = tool({
   description: 'Get user feedback history. Returns past ratings and feedback.',
   parameters: z.object({
-    user_id: z.string().uuid(),
+    user_id: z.preprocess(preprocessUserId, z.string().uuid()),
     limit: z.number().int().positive().optional().default(10)
   }),
   execute: async (params) => {
@@ -415,7 +504,7 @@ export const getFeedback = tool({
 export const analyzeSentiment = tool({
   description: 'Analyze sentiment of user message to gauge satisfaction/emotion.',
   parameters: z.object({
-    user_id: z.string().uuid(),
+    user_id: z.preprocess(preprocessUserId, z.string().uuid()),
     message: z.string().describe('User message to analyze')
   }),
   execute: async (params) => {
@@ -430,10 +519,14 @@ export const analyzeSentiment = tool({
  * ALL TOOLS REGISTRY FOR AI SDK
  */
 export const AGENTIC_TOOLS = {
-  // Resume tools (4)
+  // User Profile tools (1)
+  getUserProfile,
+
+  // Resume tools (5)
   getResume,
   createResume,
   updateResume,
+  updateResumeFromText,
   addCourse,
 
   // Certificate tools (2)

@@ -26,6 +26,9 @@ export * from './feedbackTools'
 // Proactive Tools
 export * from './proactiveTools'
 
+// User Profile Tools
+export * from './userProfileTools'
+
 // All available tools registry
 import {  createTicketTool, closeTicketTool, checkTicketStatusTool } from './ticketTools'
 import { renewContractTool, updateContractTool, checkContractExpiryTool, getContractsTool } from './contractTools'
@@ -35,6 +38,7 @@ import { createResumeTool, updateResumeTool, addCourseToResumeTool, getResumeToo
 import { predictUserNeedTool, recordFeedbackTool } from './predictionTools'
 import { getFeedbackTool, analyzeSentimentTool } from './feedbackTools'
 import { getProactiveEventsTool, markEventActedTool, createProactiveEventTool } from './proactiveTools'
+import { getUserProfileTool } from './userProfileTools'
 
 // Resume Module Tools (New)
 import { generateResumePDFTool, processUploadedResumeTool } from '@/app/modules/resume'
@@ -82,6 +86,9 @@ export const ALL_TOOLS = {
   getProactiveEventsTool,
   markEventActedTool,
   createProactiveEventTool,
+
+  // User Profile Tools
+  getUserProfileTool,
 }
 
 export type ToolName = keyof typeof ALL_TOOLS

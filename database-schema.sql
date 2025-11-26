@@ -1,5 +1,6 @@
--- AgentX Database Schema
--- Run this in Supabase SQL Editor
+-- AgentX Database Schema (Updated & Synchronized & Future Proofed)
+-- Run this in Supabase SQL Editor for a FRESH install only.
+-- For existing databases, use database-schema-FIXED.sql
 
 -- Drop existing tables if they exist (optional - comment out if you want to keep data)
 -- DROP TABLE IF EXISTS agent_actions_log CASCADE;
@@ -23,6 +24,9 @@ CREATE TABLE IF NOT EXISTS user_profile (
   phone TEXT,
   email TEXT,
   nationality TEXT DEFAULT 'سعودي',
+  national_id TEXT, -- Added for Certificate Tools
+  job_title TEXT,   -- Added for Certificate Tools
+  preferred_language TEXT DEFAULT 'ar', -- 🔮 Future: Multi-language
   birth_date TEXT,
   gender TEXT,
   address TEXT,
@@ -62,6 +66,7 @@ CREATE TABLE IF NOT EXISTS proactive_events (
   event_type TEXT NOT NULL,
   acted BOOLEAN DEFAULT false,
   suggested_action TEXT,
+  action_taken TEXT, -- Added for Logger
   metadata JSONB DEFAULT '{}',
   detected_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   action_at TIMESTAMP WITH TIME ZONE
@@ -97,6 +102,8 @@ CREATE TABLE IF NOT EXISTS resumes (
   experience_years INTEGER,
   education TEXT,
   summary TEXT,
+  file_url TEXT, -- 🔮 Future: Resume Upload
+  parsed_content JSONB DEFAULT '{}', -- 🔮 Future: Resume Parsing
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -129,7 +136,7 @@ CREATE TABLE IF NOT EXISTS labor_appointments (
 -- Agent Actions Log Table
 CREATE TABLE IF NOT EXISTS agent_actions_log (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id TEXT NOT NULL,
+  user_id TEXT NOT NULL, -- Kept as TEXT to match current state
   action_type TEXT NOT NULL,
   input_json JSONB DEFAULT '{}',
   output_json JSONB DEFAULT '{}',
@@ -143,6 +150,8 @@ CREATE TABLE IF NOT EXISTS tickets (
   ticket_number SERIAL UNIQUE,
   user_id UUID REFERENCES user_profile(user_id) ON DELETE CASCADE,
   title TEXT NOT NULL,
+  category TEXT, -- Added for Ticket Tools
+  merged_with_ticket_id UUID REFERENCES tickets(id), -- 🔮 Future: Ticket Deduplication
   status TEXT DEFAULT 'open' CHECK (status IN ('open', 'closed')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -154,6 +163,7 @@ CREATE TABLE IF NOT EXISTS conversations (
   user_id UUID REFERENCES user_profile(user_id) ON DELETE CASCADE,
   role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
   content TEXT NOT NULL,
+  metadata JSONB DEFAULT '{}', -- 🔮 Future: Voice/Sentiment
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -163,6 +173,11 @@ CREATE TABLE IF NOT EXISTS user_behavior (
   last_message TEXT,
   predicted_need TEXT,
   intent TEXT,
+  interaction_count INTEGER DEFAULT 0, -- Added for Logger
+  last_seen_service TEXT,              -- Added for Logger
+  consecutive_complaints_count INTEGER DEFAULT 0, -- Added for Logger
+  success_rate NUMERIC DEFAULT 1.0,    -- Added for Logger
+  last_rating_at TIMESTAMP WITH TIME ZONE, -- Added for Logger
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -180,7 +195,10 @@ CREATE INDEX IF NOT EXISTS idx_labor_appointments_status ON labor_appointments(s
 CREATE INDEX IF NOT EXISTS idx_agent_actions_log_user_id ON agent_actions_log(user_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_user_id ON tickets(user_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
+CREATE INDEX IF NOT EXISTS idx_tickets_category ON tickets(category); -- Added
+CREATE INDEX IF NOT EXISTS idx_tickets_merged_with ON tickets(merged_with_ticket_id); -- Added
 CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_profile_national_id ON user_profile(national_id); -- Added
 
 -- Insert sample work regulations
 INSERT INTO work_regulations (title, description, category, content) VALUES
@@ -188,5 +206,3 @@ INSERT INTO work_regulations (title, description, category, content) VALUES
 ('ساعات العمل', 'تنظيم ساعات العمل اليومية والأسبوعية', 'ساعات العمل', 'ساعات العمل الفعلية للعامل لا تزيد على ثماني ساعات في اليوم، إذا كان العمل على أساس يومي، أو ثمان وأربعين ساعة في الأسبوع، إذا كان العمل على أساس أسبوعي.'),
 ('الإجازات السنوية', 'حق العامل في الإجازة السنوية المدفوعة', 'إجازات', 'للعامل الحق في إجازة سنوية لا تقل مدتها عن واحد وعشرين يوماً تزاد إلى مدة لا تقل عن ثلاثين يوماً إذا أمضى العامل في خدمة صاحب العمل خمس سنوات متصلة.')
 ON CONFLICT DO NOTHING;
-
-

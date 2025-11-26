@@ -3,14 +3,15 @@
  * LLM makes ALL decisions about tool calling autonomously
  */
 
-import { streamText } from 'ai'
+import { streamText, stepCountIs } from 'ai'
 import { agentModel } from './groq-client'
 import { AGENTIC_TOOLS } from './tools-agentic'
-import AGENT_SYSTEM_PROMPT_OPTIMIZED from './system_prompt_optimized'
+import AGENT_SYSTEM_PROMPT from './system_prompt'
 import { saveConversation } from '@/lib/db/conversationService'
 import { updateUserBehavior, logAgentAction } from '../tools/logger'
 import { executeProactiveEngineForUser, getProactiveEventsForUser } from '../proactive'
 import { getCachedProactiveData, setCachedProactiveData } from './proactive-cache'
+import { db } from '@/lib/db/db'
 
 interface AgentMessage {
   role: 'user' | 'assistant' | 'system'
@@ -21,6 +22,36 @@ interface AgentResponse {
   response: any
   isStream: boolean
   tools_used?: string[]
+}
+
+/**
+ * 🔑 Wrap tools to inject userId automatically
+ * LLM doesn't need to provide user_id - we inject it from backend context
+ */
+function wrapToolsWithUserId(tools: any, userId: string) {
+  const wrappedTools: any = {}
+
+  for (const [toolName, toolDef] of Object.entries(tools)) {
+    const originalExecute = (toolDef as any).execute
+
+    wrappedTools[toolName] = {
+      ...(toolDef as any),
+      execute: async (params: any) => {
+        // Auto-inject user_id if the tool needs it but LLM didn't provide it
+        const finalParams = { ...params }
+
+        // If this tool needs user_id and it's missing/undefined or dummy, inject it
+        if (!finalParams.user_id || finalParams.user_id === 'undefined' || finalParams.user_id === '00000000-0000-0000-0000-000000000000') {
+          finalParams.user_id = userId
+        }
+
+        console.log(`🔧 [AUTO-INJECT] ${toolName} with user_id:`, userId)
+        return await originalExecute(finalParams)
+      }
+    }
+  }
+
+  return wrappedTools
 }
 
 /**
@@ -60,25 +91,37 @@ export async function executeAgenticAgent(
 
     console.log(`🎯 [AGENTIC] Proactive: ${pendingEvents.length} events, ${proactiveResult.predictions?.size || 0} predictions`)
 
-    // Step 2: Build conversation context with proactive information
+    // Step 2: Get user profile for personalized greetings
+    const { data: userProfile } = await db
+      .from('user_profile')
+      .select('full_name')
+      .eq('user_id', userId)
+      .single()
+
+    // Step 3: Build conversation context with proactive information
     const messages = buildMessages(
       userMessage,
       userId,
       conversationHistory,
       pendingEvents,
-      proactiveResult
+      proactiveResult,
+      userProfile?.full_name || null
     )
 
     console.log('🧠 [AGENTIC] Calling Groq GPT-OSS-120B with tool support...')
     console.log('🔧 [AGENTIC] Available tools:', Object.keys(AGENTIC_TOOLS).length)
 
+    // 🔑 Wrap tools to auto-inject user_id
+    const toolsWithUserId = wrapToolsWithUserId(AGENTIC_TOOLS, userId)
+
     // Step 3: LET THE LLM DECIDE - Stream with tool support
     const result = streamText({
       model: agentModel, // openai/gpt-oss-120b
       messages: messages as any,
-      tools: AGENTIC_TOOLS, // 🎯 LLM can now autonomously call tools!
-      maxSteps: 10, // Allow multi-step tool chaining
+      tools: toolsWithUserId, // 🎯 Tools with auto-injected user_id!
       temperature: 0.3, // Lower temp for more reliable tool calling
+      stopWhen: stepCountIs(5), // 🔑 CRITICAL FIX: Allows model to continue after tools and generate text response
+      // Default is stepCountIs(1) which stops immediately after tool execution WITHOUT text generation!
 
       // Callback when each step finishes
       onStepFinish: async (step) => {
@@ -91,6 +134,16 @@ export async function executeAgenticAgent(
       // Callback when complete
       async onFinish({ text, toolCalls, toolResults }) {
         console.log('✅ [AGENTIC] Stream finished')
+        console.log('📝 [DEBUG] Response text:', text ? `"${text}"` : 'EMPTY')
+        console.log('📝 [DEBUG] Text length:', text?.length || 0)
+
+        // 🔥 DEBUG: If tools were called but no text was generated
+        if (toolCalls && toolCalls.length > 0 && (!text || text.trim().length === 0)) {
+          console.error('⚠️ [WARNING] Tools were called but NO text response was generated!')
+          console.error('⚠️ This usually means stopWhen is set to stepCountIs(1) (default behavior)')
+          console.error('⚠️ Tool results:', JSON.stringify(toolResults?.slice(0, 2), null, 2))
+        }
+
         const toolsUsed = toolCalls?.map(tc => tc.toolName) || []
         console.log('🔧 [AGENTIC] Total tools used:', toolsUsed.length, toolsUsed)
 
@@ -119,7 +172,7 @@ export async function executeAgenticAgent(
         }, {
           response: text,
           tool_count: toolCalls?.length || 0,
-          tool_results: toolResults?.map(tr => ({ success: tr.result?.success || false }))
+          tool_results: toolResults?.map(tr => ({ success: (tr as any)?.success || false }))
         }).catch(err => console.error('Error logging agent action:', err))
 
         console.log('💾 [AGENTIC] DB writes queued (non-blocking)')
@@ -146,18 +199,88 @@ function buildMessages(
   userId: string,
   history: AgentMessage[],
   pendingEvents: any[],
-  proactiveResult: any
+  proactiveResult: any,
+  userName: string | null
 ): any[] {
-  // Start with optimized system prompt (70% smaller!)
-  let systemPrompt = AGENT_SYSTEM_PROMPT_OPTIMIZED
+  // Start with hybrid system prompt (balanced: comprehensive yet efficient)
+  let systemPrompt = AGENT_SYSTEM_PROMPT
+
+  // Add user name context if available
+  if (userName) {
+    systemPrompt += `\n\n**معلومات المستخدم**: الاسم: ${userName}\n`
+  }
+
+  // Note: user_id is automatically injected by the wrapper function
+  // LLM doesn't need to worry about it!
+
+  // Helper to get friendly Arabic labels for technical keys (used by both events and predictions)
+  const getArabicLabel = (key: string): string => {
+    const staticLabels: Record<string, string> = {
+      // Events
+      'contract_expiring_soon': 'تنبيه: قرب انتهاء العقد',
+      'upcoming_appointment': 'تذكير: موعد قادم',
+      'ticket_follow_up_needed': 'متابعة: تذكرة مفتوحة',
+      'user_dissatisfaction_detected': 'تنبيه: انخفاض مستوى الرضا',
+      'incomplete_resume_detected': 'تنبيه: السيرة الذاتية غير مكتملة',
+
+      // Predictions
+      'urgent_support_needed': 'دعم عاجل مطلوب',
+      'contract_renewal': 'تجديد عقد',
+      'certificate_request': 'طلب شهادة',
+      'appointment_preparation': 'تجهيز لموعد',
+      'ticket_follow_up': 'متابعة تذاكر',
+      'general_inquiry': 'استفسار عام'
+    }
+
+    if (staticLabels[key]) return staticLabels[key]
+
+    // Dynamic Predictions
+    if (key.startsWith('frequent_')) {
+      if (key.includes('certificates')) return 'مستخدم نشط للشهادات'
+      if (key.includes('contracts')) return 'مستخدم نشط للعقود'
+      if (key.includes('resumes')) return 'مستخدم نشط للسير الذاتية'
+    }
+
+    if (key.startsWith('interested_in_')) {
+      if (key.includes('contracts')) return 'مهتم بالعقود'
+      if (key.includes('certificates')) return 'مهتم بالشهادات'
+      if (key.includes('appointments')) return 'مهتم بالمواعيد'
+      if (key.includes('tickets')) return 'مهتم بالتذاكر'
+      if (key.includes('resumes')) return 'مهتم بالسير الذاتية'
+      if (key.includes('courses')) return 'مهتم بالدورات'
+      if (key.includes('feedback')) return 'مهتم بالتقييم'
+    }
+
+    return key // Fallback
+  }
 
   // Add proactive context if available
   if (pendingEvents.length > 0) {
-    systemPrompt += '\n\n## 🔔 أحداث استباقية معلقة (مهمة!):\n'
-    systemPrompt += 'هناك تنبيهات للمستخدم. اذكرها في ردك إذا كانت ذات صلة:\n'
-    pendingEvents.forEach((event, i) => {
-      systemPrompt += `${i + 1}. ${event.event_type}: ${event.suggested_action}\n`
+    systemPrompt += '\n\n## 🔔 أحداث استباقية تحتاج انتباهك:\n'
+    systemPrompt += '**الأحداث المعلقة:**\n'
+
+    // Deduplicate events by type (avoid showing "السيرة الذاتية غير مكتملة" 3 times)
+    const uniqueEvents = new Map<string, any>()
+    pendingEvents.forEach(event => {
+      if (!uniqueEvents.has(event.event_type)) {
+        uniqueEvents.set(event.event_type, event)
+      }
     })
+
+    let eventIndex = 1
+    uniqueEvents.forEach(event => {
+      const label = getArabicLabel(event.event_type)
+      systemPrompt += `${eventIndex}. ${label}: ${event.suggested_action}\n`
+    })
+    systemPrompt += '\n⚠️ لا تتجاهل هذه الأحداث - اذكرها دائماً في ردك بطريقة ودية.\n'
+    systemPrompt += `
+# 🎭 أسلوب الحديث
+- تحدث بلهجة سعودية بيضاء (رسمية لكن ودودة).
+- كن مختصراً جداً. لا تكتب فقرات طويلة.
+- استخدم الإيموجي باعتدال (✅، 📄، 🔔).
+- دائماً اعرض "الخطوة التالية" للمستخدم.
+- **عند الترحيب**: إذا رحب بك المستخدم (مثل "مرحبا" أو "اهلا")، رد باسمه إذا كان متوفراً (مثال: "أهلاً عزام!"). هذا يعطي تجربة شخصية ودافئة.
+`
   }
 
   // Add prediction context if available
@@ -165,7 +288,7 @@ function buildMessages(
     const prediction = proactiveResult.predictions.get(userId)
     if (prediction && prediction.confidence > 0.6) {
       systemPrompt += `\n\n## 🎯 توقع احتياجات (ثقة ${(prediction.confidence * 100).toFixed(0)}%):\n`
-      systemPrompt += `التوقع: ${prediction.predicted_need}\n`
+      systemPrompt += `التوقع: ${getArabicLabel(prediction.predicted_need)}\n`
       systemPrompt += `السبب: ${prediction.reasoning}\n`
     }
   }
