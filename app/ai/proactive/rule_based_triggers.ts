@@ -52,8 +52,8 @@ export const contractExpiryTrigger: ProactiveTrigger = {
         await createProactiveEvent(
           contract.user_id,
           'contract_expiring_soon',
-          { contract_id: contract.id, days_until_expiry: daysUntilExpiry },
-          'تم إرسال تنبيه انتهاء العقد'
+          { contract_id: contract.id, days_until_expiry: daysUntilExpiry }
+          // Don't set action_taken - event should remain unacted until user responds
         )
       }
     }
@@ -97,8 +97,8 @@ export const appointmentReminderTrigger: ProactiveTrigger = {
         await createProactiveEvent(
           appointment.user_id,
           'appointment_reminder',
-          { appointment_id: appointment.id, days_until: daysUntil },
-          'تم إرسال تذكير بالموعد'
+          { appointment_id: appointment.id, days_until: daysUntil }
+          // Don't set action_taken - event should remain unacted until user responds
         )
       }
     }
@@ -137,6 +137,14 @@ export const ticketFollowUpTrigger: ProactiveTrigger = {
           },
           suggested_action: `تذكرتك رقم ${ticket.ticket_number} "${ticket.title}" مفتوحة منذ ${daysSinceCreation} يوم. هل تحتاج متابعة؟`
         })
+
+        // Save to database so it can be retrieved later
+        await createProactiveEvent(
+          ticket.user_id,
+          'ticket_follow_up_needed',
+          { ticket_id: ticket.id, ticket_number: ticket.ticket_number, days_open: daysSinceCreation }
+          // Don't set action_taken - event should remain unacted until user responds
+        )
       }
     }
 
@@ -172,8 +180,8 @@ export const dissatisfactionTrigger: ProactiveTrigger = {
       await createProactiveEvent(
         behavior.user_id,
         'user_dissatisfaction_detected',
-        { consecutive_complaints: behavior.consecutive_complaints_count },
-        'تم رصد عدم رضا المستخدم'
+        { consecutive_complaints: behavior.consecutive_complaints_count }
+        // Don't set action_taken - event should remain unacted until user responds
       )
     }
 
@@ -194,7 +202,7 @@ export const incompleteResumeTrigger: ProactiveTrigger = {
     if (!resumes) return events
 
     for (const resume of resumes) {
-      const isIncomplete = 
+      const isIncomplete =
         !resume.headline ||
         !resume.summary ||
         !resume.skills ||
@@ -216,6 +224,14 @@ export const incompleteResumeTrigger: ProactiveTrigger = {
           },
           suggested_action: 'سيرتك الذاتية غير مكتملة. أكمل المعلومات الناقصة لزيادة فرص التوظيف!'
         })
+
+        // Save to database so it can be retrieved later
+        await createProactiveEvent(
+          resume.user_id,
+          'incomplete_resume_detected',
+          { resume_id: resume.id }
+          // Don't set action_taken - event should remain unacted until user responds
+        )
       }
     }
 
