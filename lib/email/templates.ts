@@ -1,16 +1,19 @@
 /**
  * Email Templates for HRSD/Qiwa Platform
- * All templates in Arabic with Official Ministry branding
+ * Official HRSD Ministry Branding - Exact Match
  */
 
-// Official HRSD Ministry Colors
+// Official HRSD Colors (from their website)
 const HRSD_COLORS = {
-  primary: '#158285',    // Official HRSD Genoa (Teal)
-  dark: '#053321',       // Official HRSD Zuccini (Dark Green)
-  white: '#FFFFFF'
+  primary: '#00A99D',      // Official HRSD Teal/Turquoise
+  secondary: '#F7941E',    // Official HRSD Orange accent
+  dark: '#1E1E1E',         // Dark text
+  green: '#8BC53F',        // Success green
+  white: '#FFFFFF',
+  lightBg: '#F8F9FA'
 }
 
-// Base HTML wrapper with HRSD/Qiwa branding
+// Base HTML wrapper with HRSD Official branding
 const emailWrapper = (content: string, preheader: string = '') => `
 <!DOCTYPE html>
 <html dir="rtl" lang="ar">
@@ -18,99 +21,181 @@ const emailWrapper = (content: string, preheader: string = '') => `
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     body { 
       margin: 0; 
       padding: 0; 
-      font-family: 'Arial', 'Tahoma', sans-serif; 
-      background-color: #f5f5f5;
+      font-family: 'Segoe UI', 'Tahoma', 'Arial', sans-serif; 
+      background-color: #F5F7FA;
       direction: rtl;
       text-align: right;
+      line-height: 1.6;
+    }
+    .email-wrapper {
+      background-color: #F5F7FA;
+      padding: 20px 0;
     }
     .email-container { 
       max-width: 600px; 
-      margin: 20px auto; 
-      background-color: white; 
-      border-radius: 8px;
+      margin: 0 auto; 
+      background-color: ${HRSD_COLORS.white}; 
+      border-radius: 0;
       overflow: hidden;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
     }
     .header { 
       background: linear-gradient(135deg, ${HRSD_COLORS.primary} 0%, ${HRSD_COLORS.primary} 100%);
-      padding: 30px 20px;
-      text-align: center;
-    }
-    .logo-img {
-      max-width: 180px;
-      height: auto;
-      margin: 0 auto 15px;
-    }
-    .header-title {
-      color: white;
-      font-size: 24px;
-      font-weight: bold;
-      margin: 10px 0 0 0;
-    }
-    .content { 
       padding: 40px 30px;
-      line-height: 1.8;
-      color: #333;
+      text-align: center;
+      position: relative;
     }
-    .greeting {
-      font-size: 18px;
-      color: #333;
+    .logo-container {
       margin-bottom: 20px;
     }
-    .button { 
-      display: inline-block;
-      background: linear-gradient(135deg, ${HRSD_COLORS.primary} 0%, ${HRSD_COLORS.primary} 100%);
-      color: white !important;
-      padding: 14px 32px;
-      text-decoration: none;
-      border-radius: 6px;
-      font-weight: bold;
+    .logo-img {
+      max-width: 200px;
+      height: auto;
+    }
+    .ministry-name {
+      color: ${HRSD_COLORS.white};
+      font-size: 18px;
+      font-weight: 600;
+      margin-top: 15px;
+      letter-spacing: 0.3px;
+    }
+    .ministry-name-en {
+      color: rgba(255,255,255,0.95);
+      font-size: 13px;
+      margin-top: 8px;
+      font-weight: 400;
+    }
+    .content { 
+      padding: 45px 35px;
+      background-color: ${HRSD_COLORS.white};
+    }
+    .greeting {
+      font-size: 20px;
+      color: ${HRSD_COLORS.dark};
+      margin-bottom: 25px;
+      font-weight: 600;
+    }
+    .content p {
+      color: #4A5568;
       font-size: 16px;
-      margin: 20px 0;
-    }
-    .footer { 
-      background-color: ${HRSD_COLORS.dark};
-      color: white;
-      padding: 30px 20px;
-      text-align: center;
-      font-size: 14px;
-    }
-    .footer-title {
-      font-weight: bold;
-      margin-bottom: 10px;
+      line-height: 1.8;
+      margin-bottom: 20px;
     }
     .info-box {
-      background-color: #f8f9fa;
+      background: linear-gradient(to left, #F8FFFE 0%, #FFFFFF 100%);
       border-right: 4px solid ${HRSD_COLORS.primary};
-      padding: 15px 20px;
-      margin: 20px 0;
+      padding: 20px 25px;
+      margin: 25px 0;
       border-radius: 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .info-box p {
+      margin: 10px 0;
+      color: ${HRSD_COLORS.dark};
+      font-size: 15px;
+    }
+    .info-box strong {
+      color: #2D3748;
+      font-weight: 600;
     }
     .highlight {
       color: ${HRSD_COLORS.primary};
-      font-weight: bold;
+      font-weight: 700;
+      font-size: 17px;
+    }
+    .button { 
+      display: inline-block;
+      background: ${HRSD_COLORS.primary};
+      color: ${HRSD_COLORS.white} !important;
+      padding: 16px 40px;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 16px;
+      margin: 25px 0;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 12px rgba(0,169,157,0.25);
+    }
+    .button:hover {
+      background: #00938A;
+      box-shadow: 0 6px 16px rgba(0,169,157,0.35);
+    }
+    .cta-container {
+      text-align: center;
+      margin: 30px 0;
+    }
+    .footer { 
+      background: linear-gradient(135deg, #1A202C 0%, #2D3748 100%);
+      color: ${HRSD_COLORS.white};
+      padding: 35px 30px;
+      text-align: center;
+    }
+    .footer-logo {
+      max-width: 160px;
+      margin-bottom: 20px;
+      opacity: 0.9;
+    }
+    .footer-title {
+      font-weight: 600;
+      font-size: 16px;
+      margin-bottom: 12px;
+      color: ${HRSD_COLORS.white};
+    }
+    .footer-subtitle {
+      font-size: 13px;
+      margin: 8px 0;
+      opacity: 0.85;
+      color: rgba(255,255,255,0.9);
+    }
+    .footer-note {
+      font-size: 12px;
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255,255,255,0.15);
+      opacity: 0.75;
+      color: rgba(255,255,255,0.8);
+    }
+    .divider {
+      height: 1px;
+      background: linear-gradient(to right, transparent, #E2E8F0, transparent);
+      margin: 25px 0;
+    }
+    .badge {
+      display: inline-block;
+      background: ${HRSD_COLORS.secondary};
+      color: white;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-right: 8px;
     }
   </style>
 </head>
 <body>
-  ${preheader ? `<div style="display:none;max-height:0px;overflow:hidden;">${preheader}</div>` : ''}
-  <div class="email-container">
-    <div class="header">
-      <img src="https://qiwa.sa/qiwalogofor-afrad.png" alt="Qiwa Logo" class="logo-img" />
-      <div class="header-title">منصة قوى</div>
-      <div style="color: white; font-size: 14px; margin-top: 5px;">وزارة الموارد البشرية والتنمية الاجتماعية</div>
-    </div>
-    ${content}
-    <div class="footer">
-      <div class="footer-title">وزارة الموارد البشرية والتنمية الاجتماعية</div>
-      <div style="font-size: 12px; margin-top: 10px; opacity: 0.9;">
-        المملكة العربية السعودية
+  ${preheader ? `<div style="display:none;max-height:0px;overflow:hidden;font-size:1px;color:#F5F7FA;line-height:1px;max-width:0px;opacity:0;">${preheader}</div>` : ''}
+  <div class="email-wrapper">
+    <div class="email-container">
+      <div class="header">
+        <div class="logo-container">
+          <img src="https://i.imgur.com/MxslkIu.png" alt="شعار وزارة الموارد البشرية والتنمية الاجتماعية" class="logo-img" />
+        </div>
+        <div class="ministry-name">وزارة الموارد البشرية والتنمية الاجتماعية</div>
+        <div class="ministry-name-en">Ministry of Human Resources and Social Development</div>
       </div>
-      <div style="font-size: 12px; margin-top: 15px; opacity: 0.8;">
-        هذه رسالة تلقائية، الرجاء عدم الرد عليها
+      ${content}
+      <div class="footer">
+        <div class="footer-title">وزارة الموارد البشرية والتنمية الاجتماعية</div>
+        <div class="footer-subtitle">المملكة العربية السعودية</div>
+        <div class="footer-subtitle">Kingdom of Saudi Arabia</div>
+        <div class="footer-note">
+          هذه رسالة تلقائية من نظام قوى، الرجاء عدم الرد عليها مباشرة.<br>
+          للتواصل، يرجى زيارة منصة قوى أو الموقع الرسمي للوزارة.
+        </div>
       </div>
     </div>
   </div>
@@ -131,28 +216,31 @@ export const ticketOpenedTemplate = (params: {
     <div class="content">
       <div class="greeting">مرحباً ${params.userName}،</div>
       
-      <p>تم فتح تذكرة دعم جديدة في حسابك على منصة قوى.</p>
+      <p>تم فتح تذكرة دعم جديدة في حسابك على منصة قوى بنجاح.</p>
       
       <div class="info-box">
-        <p style="margin: 5px 0;"><strong>رقم التذكرة:</strong> <span class="highlight">#${params.ticketNumber}</span></p>
-        <p style="margin: 5px 0;"><strong>العنوان:</strong> ${params.ticketTitle}</p>
-        <p style="margin: 5px 0;"><strong>التصنيف:</strong> ${params.ticketCategory}</p>
+        <p><strong>رقم التذكرة:</strong> <span class="highlight">#${params.ticketNumber}</span></p>
+        <p><strong>العنوان:</strong> ${params.ticketTitle}</p>
+        <p><strong>التصنيف:</strong> ${params.ticketCategory}</p>
+        <p><strong>الحالة:</strong> <span class="badge">قيد المعالجة</span></p>
       </div>
+
+      <p>سيتم معالجة طلبك في أقرب وقت ممكن من قبل فريق الدعم المختص. يمكنك متابعة حالة التذكرة وتحديثاتها من خلال حسابك على منصة قوى.</p>
       
-      <p>سيتم معالجة طلبك في أقرب وقت ممكن. يمكنك متابعة حالة التذكرة من خلال حسابك.</p>
+      <div class="cta-container">
+        <a href="https://qiwa.sa/individuals/chatbot" class="button">عرض تفاصيل التذكرة</a>
+      </div>
+
+      <div class="divider"></div>
       
-      <center>
-        <a href="https://qiwa.sa/individuals/chatbot" class="button">عرض التذكرة</a>
-      </center>
-      
-      <p style="margin-top: 30px; font-size: 14px; color: #666;">
-        شكراً لاستخدامك منصة قوى
+      <p style="font-size: 14px; color: #718096;">
+        💡 <strong>نصيحة:</strong> للحصول على رد أسرع، تأكد من إضافة جميع التفاصيل المطلوبة في وصف التذكرة.
       </p>
     </div>
   `
 
   return {
-    subject: `تم فتح تذكرة دعم #${params.ticketNumber}`,
+    subject: `✅ تم فتح تذكرة دعم #${params.ticketNumber} - منصة قوى`,
     html: emailWrapper(content, `تذكرة جديدة: ${params.ticketTitle}`)
   }
 }
@@ -170,28 +258,31 @@ export const ticketClosedTemplate = (params: {
     <div class="content">
       <div class="greeting">مرحباً ${params.userName}،</div>
       
-      <p>تم إغلاق تذكرة الدعم الخاصة بك بنجاح.</p>
+      <p>نود إعلامك بأنه تم إغلاق تذكرة الدعم الخاصة بك بنجاح.</p>
       
       <div class="info-box">
-        <p style="margin: 5px 0;"><strong>رقم التذكرة:</strong> <span class="highlight">#${params.ticketNumber}</span></p>
-        <p style="margin: 5px 0;"><strong>العنوان:</strong> ${params.ticketTitle}</p>
-        ${params.resolution ? `<p style="margin: 5px 0;"><strong>الحل:</strong> ${params.resolution}</p>` : ''}
+        <p><strong>رقم التذكرة:</strong> <span class="highlight">#${params.ticketNumber}</span></p>
+        <p><strong>العنوان:</strong> ${params.ticketTitle}</p>
+        ${params.resolution ? `<p><strong>الحل المقدم:</strong> ${params.resolution}</p>` : ''}
+        <p><strong>الحالة:</strong> <span class="badge" style="background:#8BC53F;">مُغلقة</span></p>
       </div>
       
-      <p>نأمل أن يكون الحل المقدم قد ساعدك. إذا كان لديك أي استفسار آخر، لا تتردد في التواصل معنا.</p>
+      <p>نأمل أن يكون الحل المقدم قد ساعدك في حل مشكلتك. إذا كان لديك أي استفسار آخر أو تحتاج إلى مساعدة إضافية، لا تتردد في التواصل معنا من خلال فتح تذكرة جديدة.</p>
       
-      <center>
-        <a href="https://qiwa.sa/individuals/chatbot" class="button">زيارة حسابي</a>
-      </center>
+      <div class="cta-container">
+        <a href="https://qiwa.sa/individuals/chatbot" class="button">زيارة حسابي على قوى</a>
+      </div>
+
+      <div class="divider"></div>
       
-      <p style="margin-top: 30px; font-size: 14px; color: #666;">
-        نشكرك على ثقتك بخدماتنا
+      <p style="font-size: 14px; color: #718096; text-align: center;">
+        نشكرك على ثقتك بخدمات منصة قوى 🙏
       </p>
     </div>
   `
 
   return {
-    subject: `تم إغلاق تذكرة الدعم #${params.ticketNumber}`,
+    subject: `✅ تم إغلاق تذكرة الدعم #${params.ticketNumber} - منصة قوى`,
     html: emailWrapper(content, `تم حل تذكرتك بنجاح`)
   }
 }
@@ -208,37 +299,49 @@ export const contractExpiringTemplate = (params: {
 }) => {
   const urgency = params.daysRemaining <= 7 ? 'عاجل' : 'تنبيه'
   const urgencyColor = params.daysRemaining <= 7 ? '#DC2626' : '#F59E0B'
+  const urgencyBg = params.daysRemaining <= 7 ? '#FEE2E2' : '#FEF3C7'
 
   const content = `
     <div class="content">
       <div class="greeting">مرحباً ${params.userName}،</div>
       
-      <p style="background-color: ${urgencyColor}15; border-right: 4px solid ${urgencyColor}; padding: 15px; border-radius: 4px;">
-        <strong style="color: ${urgencyColor};">⚠️ ${urgency}:</strong> عقد العمل الخاص بك على وشك الانتهاء
-      </p>
-      
-      <div class="info-box">
-        <p style="margin: 5px 0;"><strong>جهة العمل:</strong> ${params.employerName}</p>
-        <p style="margin: 5px 0;"><strong>المسمى الوظيفي:</strong> ${params.position}</p>
-        <p style="margin: 5px 0;"><strong>تاريخ الانتهاء:</strong> ${params.endDate}</p>
-        <p style="margin: 5px 0;"><strong>المتبقي:</strong> <span class="highlight">${params.daysRemaining} يوم</span></p>
+      <div style="background-color: ${urgencyBg}; border-right: 4px solid ${urgencyColor}; padding: 20px 25px; margin: 25px 0; border-radius: 4px;">
+        <p style="margin: 0; color: ${urgencyColor}; font-weight: 700; font-size: 18px;">
+          ⚠️ ${urgency}: عقد العمل الخاص بك على وشك الانتهاء
+        </p>
       </div>
       
-      <p>نوصي بالتواصل مع جهة عملك لتجديد العقد أو اتخاذ الإجراءات اللازمة قبل انتهاء المدة.</p>
+      <p>نود تنبيهك بأن عقد العمل الخاص بك سينتهي قريباً. يُرجى اتخاذ الإجراء المناسب في أقرب وقت.</p>
       
-      <center>
+      <div class="info-box">
+        <p><strong>جهة العمل:</strong> ${params.employerName}</p>
+        <p><strong>المسمى الوظيفي:</strong> ${params.position}</p>
+        <p><strong>تاريخ انتهاء العقد:</strong> ${params.endDate}</p>
+        <p><strong>الأيام المتبقية:</strong> <span class="highlight">${params.daysRemaining} يوم</span></p>
+      </div>
+      
+      <p><strong>الإجراءات الموصى بها:</strong></p>
+      <ul style="color: #4A5568; margin-right: 20px; line-height: 2;">
+        <li>التواصل مع صاحب العمل لتجديد العقد</li>
+        <li>مراجعة شروط وبنود العقد الجديد</li>
+        <li>التأكد من تحديث بياناتك على منصة قوى</li>
+      </ul>
+      
+      <div class="cta-container">
         <a href="https://qiwa.sa/individuals/contracts" class="button">عرض تفاصيل العقد</a>
-      </center>
+      </div>
+
+      <div class="divider"></div>
       
-      <p style="margin-top: 30px; font-size: 14px; color: #666;">
-        منصة قوى - خدمة استباقية لحمايتك
+      <p style="font-size: 14px; color: #718096;">
+        منصة قوى - خدمة استباقية لحمايتك وتسهيل إجراءاتك 🛡️
       </p>
     </div>
   `
 
   return {
-    subject: `${urgency}: عقد العمل ينتهي خلال ${params.daysRemaining} يوم`,
-    html: emailWrapper(content, `عقدك ينتهي قريباً - اتخذ الإجراء`)
+    subject: `⚠️ ${urgency}: عقد العمل ينتهي خلال ${params.daysRemaining} يوم - منصة قوى`,
+    html: emailWrapper(content, `عقدك ينتهي قريباً - اتخذ الإجراء المناسب`)
   }
 }
 
@@ -253,30 +356,38 @@ export const profileIncompleteTemplate = (params: {
     <div class="content">
       <div class="greeting">مرحباً ${params.userName}،</div>
       
-      <p>لاحظنا أن ملفك الشخصي على منصة قوى غير مكتمل. إكمال معلوماتك الشخصية سيساعدك في الحصول على خدمات أفضل وأسرع.</p>
+      <p>لاحظنا أن ملفك الشخصي على منصة قوى غير مكتمل. إكمال معلوماتك الشخصية سيساعدك في:</p>
+      
+      <ul style="color: #4A5568; margin-right: 20px; line-height: 2;">
+        <li>الحصول على خدمات أفضل وأسرع</li>
+        <li>تلقي توصيات وظيفية مناسبة لك</li>
+        <li>الاستفادة من جميع مزايا المنصة</li>
+      </ul>
       
       <div class="info-box">
-        <p style="margin: 5px 0; font-weight: bold;">الحقول المطلوبة:</p>
-        <ul style="margin: 10px 0; padding-right: 20px;">
-          ${params.missingFields.map(field => `<li>${field}</li>`).join('')}
+        <p style="font-weight: 700; margin-bottom: 15px; color: ${HRSD_COLORS.primary};">📋 الحقول المطلوبة لإكمال ملفك:</p>
+        <ul style="margin-right: 20px; color: #2D3748;">
+          ${params.missingFields.map(field => `<li style="margin: 8px 0;">${field}</li>`).join('')}
         </ul>
       </div>
       
-      <p>إكمال هذه المعلومات سيستغرق دقائق معدودة فقط.</p>
+      <p>إكمال هذه المعلومات سيستغرق دقائق معدودة فقط ✨</p>
       
-      <center>
-        <a href="https://qiwa.sa/individuals/profile" class="button">إكمال الملف الشخصي</a>
-      </center>
+      <div class="cta-container">
+        <a href="https://qiwa.sa/individuals/profile" class="button">إكمال الملف الشخصي الآن</a>
+      </div>
+
+      <div class="divider"></div>
       
-      <p style="margin-top: 30px; font-size: 14px; color: #666;">
-        منصة قوى - معك لخدمة أفضل
+      <p style="font-size: 14px; color: #718096; text-align: center;">
+        منصة قوى - معك لخدمة أفضل 💼
       </p>
     </div>
   `
 
   return {
-    subject: 'أكمل ملفك الشخصي على منصة قوى',
-    html: emailWrapper(content, 'ملفك غير مكتمل')
+    subject: '📝 أكمل ملفك الشخصي على منصة قوى للاستفادة الكاملة',
+    html: emailWrapper(content, 'ملفك الشخصي غير مكتمل')
   }
 }
 
@@ -292,27 +403,39 @@ export const certificateIssuedTemplate = (params: {
     <div class="content">
       <div class="greeting">مرحباً ${params.userName}،</div>
       
-      <p>تم إصدار شهادة جديدة لك بنجاح من منصة قوى.</p>
+      <p style="font-size: 18px; color: ${HRSD_COLORS.primary}; font-weight: 600;">
+        🎉 تهانينا! تم إصدار شهادتك بنجاح
+      </p>
+      
+      <p>يسرنا إعلامك بأنه تم إصدار شهادة جديدة لك من منصة قوى.</p>
       
       <div class="info-box">
-        <p style="margin: 5px 0;"><strong>نوع الشهادة:</strong> <span class="highlight">${params.certificateType}</span></p>
-        <p style="margin: 5px 0;"><strong>تاريخ الإصدار:</strong> ${params.issueDate}</p>
+        <p><strong>نوع الشهادة:</strong> <span class="highlight">${params.certificateType}</span></p>
+        <p><strong>تاريخ الإصدار:</strong> ${params.issueDate}</p>
+        <p><strong>الجهة المصدرة:</strong> وزارة الموارد البشرية والتنمية الاجتماعية</p>
       </div>
       
-      <p>يمكنك تحميل الشهادة أو مشاركتها مباشرة من حسابك.</p>
+      <p>يمكنك الآن:</p>
+      <ul style="color: #4A5568; margin-right: 20px; line-height: 2;">
+        <li>تحميل الشهادة بصيغة PDF</li>
+        <li>مشاركتها مع الجهات المعنية</li>
+        <li>طباعتها للاستخدام الرسمي</li>
+      </ul>
       
-      <center>
-        <a href="https://qiwa.sa/individuals/certificates" class="button">عرض الشهادة</a>
-      </center>
+      <div class="cta-container">
+        <a href="https://qiwa.sa/individuals/certificates" class="button">عرض وتحميل الشهادة</a>
+      </div>
+
+      <div class="divider"></div>
       
-      <p style="margin-top: 30px; font-size: 14px; color: #666;">
-        تم الإصدار بواسطة المساعد الذكي
+      <p style="font-size: 14px; color: #718096; text-align: center;">
+        تم الإصدار بواسطة المساعد الذكي على منصة قوى 🤖
       </p>
     </div>
   `
 
   return {
-    subject: `تم إصدار شهادة: ${params.certificateType}`,
-    html: emailWrapper(content, 'شهادة جديدة جاهزة')
+    subject: `🎉 تم إصدار شهادة: ${params.certificateType} - منصة قوى`,
+    html: emailWrapper(content, 'شهادة جديدة جاهزة للتحميل')
   }
 }
