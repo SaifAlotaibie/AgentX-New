@@ -51,6 +51,7 @@
     "puppeteer": "^24.31.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "resend": "^6.5.2",
     "typescript": "^5.9.3",
     "zod": "^4.1.13"
   },

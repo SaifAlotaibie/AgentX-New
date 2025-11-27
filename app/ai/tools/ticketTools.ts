@@ -2,6 +2,7 @@ import { Tool, ToolResult } from './types'
 import { insert, update, findById, findByUser } from '@/lib/db/db'
 import { Ticket } from '@/lib/db/types'
 import { logAgentAction, updateUserBehavior } from './logger'
+import { sendTicketOpenedEmail, sendTicketClosedEmail } from '@/lib/email/service'
 
 /**
  * Create Ticket Tool
@@ -46,6 +47,15 @@ export const createTicketTool: Tool = {
       await updateUserBehavior(user_id, {
         last_seen_service: 'tickets',
       })
+
+      // Send email notification (non-blocking)
+      if (result.data) {
+        sendTicketOpenedEmail(user_id, {
+          ticket_number: result.data.ticket_number || result.data.id.substring(0, 8),
+          title,
+          category
+        }).catch(err => console.error('Email notification failed:', err))
+      }
 
       return {
         success: true,
@@ -108,6 +118,12 @@ export const closeTicketTool: Tool = {
       await updateUserBehavior(user_id, {
         last_seen_service: 'tickets',
       })
+
+      // Send email notification (non-blocking)
+      sendTicketClosedEmail(user_id, {
+        ticket_number: ticket.ticket_number || ticket_id.substring(0, 8),
+        title: ticket.title
+      }).catch(err => console.error('Email notification failed:', err))
 
       return {
         success: true,
